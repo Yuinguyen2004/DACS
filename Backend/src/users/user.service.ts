@@ -1,5 +1,5 @@
 // users.service.ts
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -55,11 +55,12 @@ export class UsersService {
   async changePassword(id: string, dto: ChangePasswordDto) {
     const user = await this.userModel.findById(id);
     if (!user) throw new NotFoundException('User not found');
-    const ok = await bcrypt.compare(dto.oldPassword, user.password_hash);
-    if (!ok) throw new Error('Old password is incorrect');
+    const isMatch = await bcrypt.compare(dto.oldPassword, user.password_hash);
+    if (!isMatch) throw new BadRequestException('Mật khẩu cũ không đúng');
     user.password_hash = await bcrypt.hash(dto.newPassword, 10);
     await user.save();
-    return { message: 'Password changed successfully' };
+
+    return { message: 'Đổi mật khẩu thành công' };
   }
 
 }

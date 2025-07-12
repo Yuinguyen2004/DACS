@@ -16,7 +16,7 @@ export class User extends Document {
   role: string;
 
   @Prop({ required: false, ref: 'Package', default: null })
-  package_id: string; // ref tới Package
+  package_id: string;
 
   @Prop({ default: 'inactive' })
   status: string;

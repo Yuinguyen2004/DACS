@@ -9,8 +9,7 @@ import { AuthModule } from './auth/auth.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
+      isGlobal: true
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],

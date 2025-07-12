@@ -1,9 +1,10 @@
 // users.controller.ts
-import { Controller, Post, Get, Body, UsePipes, ValidationPipe, Param, NotFoundException, Patch } from '@nestjs/common';
+import { Controller, Post, Get, Body, UsePipes, ValidationPipe, Param, NotFoundException, Patch, UseGuards, Req } from '@nestjs/common';
 import { UsersService } from './user.service';
 import { CreateUserDto } from '../dto/user-dto/create-user.dto';
 import { UpdateUserDto } from '../dto/user-dto/update-user.dto';
 import { ChangePasswordDto } from '../dto/user-dto/change-user.dto';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('users')
 export class UsersController {
@@ -37,8 +38,11 @@ export class UsersController {
   }
 
   @Patch(':id/password')
-  async changePassword(@Param('id') id: string, @Body() dto: ChangePasswordDto) {
+  @UseGuards(AuthGuard('jwt'))
+  async changePassword(@Param('id') id: string, @Body() dto: ChangePasswordDto, @Req() req: any) {
+    if (req.user.userId !== id) {
+      throw new NotFoundException('You can only change your own password');
+    }
     return this.usersService.changePassword(id, dto);
   }
-
 }

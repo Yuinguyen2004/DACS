@@ -21,13 +21,12 @@ export class AuthService {
 
   async login(email: string, password: string) {
     const user = await this.validateUser(email, password);
-    // Chỉ lấy các trường cần thiết trả về cho client
     const payload = { sub: user._id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload);
     const { password_hash, ...result } = user.toObject();
     return {
       user: result,
-      accessToken
+      accessToken: `Bearer ${accessToken}`
     };
   }
 }
