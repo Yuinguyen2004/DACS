@@ -15,10 +15,10 @@ export class User extends Document {
   @Prop({ required: true, default: 'user' })
   role: string;
 
-  @Prop({ required: true, ref: 'Package' })
+  @Prop({ required: false, ref: 'Package', default: null })
   package_id: string; // ref tới Package
 
-  @Prop({ default: 'active' })
+  @Prop({ default: 'inactive' })
   status: string;
 }
 
