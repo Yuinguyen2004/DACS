@@ -1,14 +1,13 @@
 import { Injectable } from "@nestjs/common";
+import { InjectModel } from "@nestjs/mongoose";
+import { Package } from "./package.schema";
+import { Model } from "mongoose";
 
 @Injectable()
 export class PackageService {
-    async create(data: any) {
-        // Logic to create a package
-        return { message: "Package created", data };
-    }
+    constructor(@InjectModel(Package.name) private packageModel: Model<Package>) { }
 
     async findAll() {
-        // Logic to find all packages
-        return [{ id: 1, name: "Sample Package" }];
+        return this.packageModel.find();
     }
 }

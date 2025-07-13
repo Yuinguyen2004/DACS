@@ -26,6 +26,7 @@ export class UsersService {
       email: dto.email,
       password_hash: hash,
       role: 'user', // default role
+      package_id: null, // reference to Packages collection, default to null until assigned
       status: 'inactive', // default status
     });
     await user.save();

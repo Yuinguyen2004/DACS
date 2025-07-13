@@ -1,5 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document,Schema as MongooseSchema } from 'mongoose';
+import { Package } from '../packages/package.schema';
 
 @Schema({ timestamps: true })
 export class User extends Document {
@@ -15,8 +16,8 @@ export class User extends Document {
   @Prop({ required: true, default: 'user' })
   role: string;
 
-  @Prop({ required: false, ref: 'Package', default: null })
-  package_id: string;
+  @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Package', required: true })
+  package_id: MongooseSchema.Types.ObjectId | Package;
 
   @Prop({ default: 'inactive' })
   status: string;
