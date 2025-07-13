@@ -1,31 +1,35 @@
-import { useState } from "react";
+import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from '/vite.svg'
+import './App.css'
 
 function App() {
-  const [message, setMessage] = useState("");
-
-  // Gọi API từ backend NestJS mẫu (cần thay đúng URL nếu khác)
-  const callBackend = async () => {
-    try {
-      const res = await fetch("http://localhost:3000"); // Backend API endpoint NestJS
-      const data = await res.text();
-      setMessage(data);
-    } catch (err) {
-      setMessage("Lỗi gọi API backend!");
-    }
-  };
+  const [count, setCount] = useState(0)
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>React Frontend (Vite)</h1>
-      <button onClick={callBackend}>Gọi API backend NestJS</button>
-      {message && (
-        <div style={{ marginTop: 20 }}>
-          <strong>Kết quả:</strong>
-          <div>{message}</div>
-        </div>
-      )}
-    </div>
-  );
+    <>
+      <div>
+        <a href="https://vite.dev" target="_blank">
+          <img src={viteLogo} className="logo" alt="Vite logo" />
+        </a>
+        <a href="https://react.dev" target="_blank">
+          <img src={reactLogo} className="logo react" alt="React logo" />
+        </a>
+      </div>
+      <h1>Vite + React</h1>
+      <div className="card">
+        <button onClick={() => setCount((count) => count + 1)}>
+          count is {count}
+        </button>
+        <p>
+          Edit <code>src/App.jsx</code> and save to test HMR
+        </p>
+      </div>
+      <p className="read-the-docs">
+        Click on the Vite and React logos to learn more
+      </p>
+    </>
+  )
 }
 
-export default App;
+export default App
