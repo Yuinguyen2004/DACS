@@ -1,9 +1,9 @@
 // users.controller.ts
 import { Controller, Post, Get, Body, UsePipes, ValidationPipe, Param, NotFoundException, Patch, UseGuards, Req } from '@nestjs/common';
 import { UsersService } from './user.service';
-import { CreateUserDto } from '../dto/user-dto/create-user.dto';
-import { UpdateUserDto } from '../dto/user-dto/update-user.dto';
-import { ChangePasswordDto } from '../dto/user-dto/change-user.dto';
+import { CreateUserDto } from './dto/user-dto/create-user.dto';
+import { UpdateUserDto } from './dto/user-dto/update-user.dto';
+import { ChangePasswordDto } from './dto/user-dto/change-user.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('users')
