@@ -6,11 +6,13 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/user.module';
 import { AuthModule } from './auth/auth.module';
 import { PackageModule } from './packages/package.module';
+import { Quiz } from './quizzes/quiz.schema';
+import { QuizModule } from './quizzes/quiz.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true
+      isGlobal: true,
     }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
@@ -21,7 +23,8 @@ import { PackageModule } from './packages/package.module';
     }),
     UsersModule,
     AuthModule,
-    PackageModule
+    PackageModule,
+    QuizModule,
   ],
   controllers: [AppController],
   providers: [AppService],

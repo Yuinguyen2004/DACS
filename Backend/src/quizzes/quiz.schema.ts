@@ -1,3 +1,4 @@
+import { Type } from '@nestjs/common';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
@@ -10,7 +11,7 @@ export class Quiz extends Document {
   description: string;
 
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  user_id: string; // ref tới User
+  user_id: string; // người tạo quiz
 
   @Prop({ default: false })
   is_premium: boolean;
