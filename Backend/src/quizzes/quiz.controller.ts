@@ -9,7 +9,9 @@ import {
   Patch,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -17,6 +19,7 @@ import { QuizService } from './quiz.service';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('quizzes')
 export class QuizController {
@@ -60,7 +63,7 @@ export class QuizController {
     ) {
       quizUserId = (quizUserId as { _id: any })._id;
     }
-    // Convert MongoDB ObjectId to string for comparison
+    // chuyen doi MongoDB ObjectId sang string de so sanh
     if (quizUserId.toString() !== req.user.userId) {
       throw new ForbiddenException('Bạn không có quyền sửa quiz này');
     }
@@ -84,11 +87,22 @@ export class QuizController {
     ) {
       quizUserId = (quizUserId as { _id: any })._id;
     }
-    // Convert MongoDB ObjectId to string for comparison
+    // chuyen doi MongoDB ObjectId sang string de so sanh
     if (quizUserId.toString() !== req.user.userId) {
       throw new ForbiddenException('Bạn không có quyền xóa quiz này');
     }
 
     return this.quizService.delete(id, req.user.userId);
+  }
+
+  @Post('import')
+  @UseGuards(AuthGuard('jwt'))
+  @UseInterceptors(FileInterceptor('file'))
+  async importQuizzes(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    const userId = req.user.userId;
+    return this.quizService.importQuizFromFile(file, userId);
   }
 }
