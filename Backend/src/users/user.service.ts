@@ -1,5 +1,9 @@
 // users.service.ts
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import * as bcrypt from 'bcrypt';
@@ -10,7 +14,7 @@ import { ChangePasswordDto } from './dto/user-dto/change-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<User>) { }
+  constructor(@InjectModel(User.name) private userModel: Model<User>) {}
 
   async create(dto: CreateUserDto) {
     // check email hien da ton tai
@@ -63,5 +67,4 @@ export class UsersService {
 
     return { message: 'Đổi mật khẩu thành công' };
   }
-
 }

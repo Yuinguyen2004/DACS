@@ -1,5 +1,17 @@
 // users.controller.ts
-import { Controller, Post, Get, Body, UsePipes, ValidationPipe, Param, NotFoundException, Patch, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  UsePipes,
+  ValidationPipe,
+  Param,
+  NotFoundException,
+  Patch,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { UsersService } from './user.service';
 import { CreateUserDto } from './dto/user-dto/create-user.dto';
 import { UpdateUserDto } from './dto/user-dto/update-user.dto';
@@ -8,7 +20,7 @@ import { AuthGuard } from '@nestjs/passport';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Post()
   @UsePipes(new ValidationPipe())
@@ -18,7 +30,7 @@ export class UsersController {
 
   @Get()
   async findAll() {
-    return (await this.usersService.findAll()).map(u => {
+    return (await this.usersService.findAll()).map((u) => {
       const { password_hash, ...userWithoutPassword } = u.toObject();
       return userWithoutPassword;
     });
@@ -39,7 +51,11 @@ export class UsersController {
 
   @Patch(':id/password')
   @UseGuards(AuthGuard('jwt'))
-  async changePassword(@Param('id') id: string, @Body() dto: ChangePasswordDto, @Req() req: any) {
+  async changePassword(
+    @Param('id') id: string,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: any,
+  ) {
     if (req.user.userId !== id) {
       throw new NotFoundException('You can only change your own password');
     }

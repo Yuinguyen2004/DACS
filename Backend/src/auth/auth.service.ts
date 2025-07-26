@@ -8,7 +8,7 @@ import * as bcrypt from 'bcryptjs';
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -26,7 +26,7 @@ export class AuthService {
     const { password_hash, ...result } = user.toObject();
     return {
       user: result,
-      accessToken: `Bearer ${accessToken}`
+      accessToken: `Bearer ${accessToken}`,
     };
   }
 }

@@ -8,6 +8,10 @@ import { AuthModule } from './auth/auth.module';
 import { PackageModule } from './packages/package.module';
 import { Quiz } from './quizzes/quiz.schema';
 import { QuizModule } from './quizzes/quiz.module';
+import { Answer } from './answers/answer.schema';
+import { AnswerModule } from './answers/answer.module';
+import { TestAttemptModule } from './test-attempts/test-attempt.module';
+import { QuestionModule } from './questions/question.module';
 
 @Module({
   imports: [
@@ -25,6 +29,9 @@ import { QuizModule } from './quizzes/quiz.module';
     AuthModule,
     PackageModule,
     QuizModule,
+    QuestionModule,
+    AnswerModule,
+    TestAttemptModule,
   ],
   controllers: [AppController],
   providers: [AppService],

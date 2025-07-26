@@ -1,12 +1,12 @@
-import { Controller, Get } from "@nestjs/common";
-import { PackageService } from "./package.service";
+import { Controller, Get } from '@nestjs/common';
+import { PackageService } from './package.service';
 
 @Controller('packages')
 export class PackageController {
-    constructor(private readonly packageService: PackageService) { }
+  constructor(private readonly packageService: PackageService) {}
 
-    @Get()
-    async findAll() {
-        return await this.packageService.findAll();
-    }
+  @Get()
+  async findAll() {
+    return await this.packageService.findAll();
+  }
 }

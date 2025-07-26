@@ -16,7 +16,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!secret) {
       throw new Error('JWT_SECRET not defined in environment variables');
     }
-    
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -29,11 +29,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!payload.sub || !payload.email) {
       throw new UnauthorizedException('Invalid token payload');
     }
-    
-    return { 
-      userId: payload.sub, 
-      email: payload.email, 
-      role: payload.role || 'user'
+
+    return {
+      userId: payload.sub,
+      email: payload.email,
+      role: payload.role || 'user',
     };
   }
 }

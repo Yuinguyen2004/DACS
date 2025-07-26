@@ -16,6 +16,7 @@ import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { Question } from '../questions/question.schema';
 import { Answer } from '../answers/answer.schema';
 import { GoogleGenerativeAI } from '@google/generative-ai'; // Thư viện Gemini AI
+import { Console } from 'console';
 
 /**
  * Interface định nghĩa cấu trúc của một câu hỏi được trích xuất từ AI
@@ -200,7 +201,7 @@ export class QuizService {
       {
         "questionNumber": number, // Số thứ tự câu hỏi
         "questionText": "string", // Nội dung câu hỏi
-        "questionType": "mcq", // Loại câu hỏi, mặc định là "single-choice"
+        "questionType": "mcq", // Loại câu hỏi, mặc định là "mcq"
         "options": ["string"], // Mảng các lựa chọn
         "correctAnswer": "string", // Nội dung của đáp án đúng, phải khớp chính xác với một trong các options
         "explanation": "string" // Giải thích ngắn gọn cho đáp án (nếu có)
