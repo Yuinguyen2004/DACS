@@ -33,7 +33,7 @@ export class TestAttemptController {
    */
   @Post('start/:quiz_id') // POST request
   async startTest(@Param('quiz_id') quizId: string, @Request() req: any) {
-    const userId = req.user.userId; // hoặc req.user._id tùy cách bạn setup
+    const userId = req.user.userId;
     return this.testAttemptService.startTest(quizId, userId);
   }
 

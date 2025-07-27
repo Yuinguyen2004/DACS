@@ -5,6 +5,7 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { TestAttempt } from './test-attempt.schema';
@@ -13,7 +14,6 @@ import { Question } from '../questions/question.schema';
 import { Answer } from '../answers/answer.schema';
 import { User } from '../users/user.schema';
 import { SubmitTestDto } from './dto/submit-test.dto';
-import { time } from 'console';
 import { StartTestResponseDto } from './dto/start-test-reponse.dto';
 
 @Injectable()
@@ -38,8 +38,6 @@ export class TestAttemptService {
     quiz_id: string,
     userId: string,
   ): Promise<StartTestResponseDto> {
-    console.log('=== START TEST ===');
-    console.log('Creating attempt for user:', userId);
     // 1. Kiem tra quiz co ton tai khong
     const quiz = await this.quizModel.findById(quiz_id);
     if (!quiz) {
@@ -55,13 +53,16 @@ export class TestAttemptService {
 
       // Chi admin hoac user co package co gia > 0 moi co the truy cap premium quiz
       const isAdmin = user.role === 'admin';
-      const hasPremiumPackage = user.package_id && 
-        (typeof user.package_id === 'object' ? 
-          (user.package_id as any).price > 0 : 
-          false);
+      const hasPremiumPackage =
+        user.package_id &&
+        (typeof user.package_id === 'object'
+          ? (user.package_id as any).price > 0
+          : false);
 
       if (!isAdmin && !hasPremiumPackage) {
-        throw new ForbiddenException('Bạn cần nâng cấp gói premium để truy cập quiz này');
+        throw new ForbiddenException(
+          'Bạn cần nâng cấp gói premium để truy cập quiz này',
+        );
       }
     }
 
@@ -138,6 +139,14 @@ export class TestAttemptService {
    * 6. Luu ket qua vao database
    */
   async submitTest(submitData: SubmitTestDto, userId: string) {
+    // Check if attempt should be timed out first
+    const isTimedOut = await this.checkAndTimeoutAttempt(submitData.attempt_id);
+    if (isTimedOut) {
+      throw new BadRequestException(
+        'Test attempt has been automatically timed out due to exceeding time limit',
+      );
+    }
+
     // 1. Tìm attempt dang in_progress
     const attempt = await this.testAttemptModel.findOne({
       _id: new Types.ObjectId(submitData.attempt_id),
@@ -163,15 +172,20 @@ export class TestAttemptService {
       (completedAt.getTime() - attempt.started_at.getTime()) / 1000,
     );
 
-    // Thêm: Kiem tra thoi gian time_limit
+    // Check time limit and determine if submission is late
+    let isLate = false;
     if (quiz.time_limit) {
       const timeLimitInSeconds = quiz.time_limit * 60;
-      const GRACE_PERIOD = 30; // 30 seconds grace period
-
+      const GRACE_PERIOD = 30; // 30 seconds grace period for network delays
+      
       if (completionTime > timeLimitInSeconds + GRACE_PERIOD) {
+        // Too late - reject submission completely
         throw new BadRequestException(
-          `Test submission exceeded time limit. Time limit: ${quiz.time_limit} minutes, Time taken: ${Math.ceil(completionTime / 60)} minutes`,
+          `Test submission exceeded time limit by too much. Time limit: ${quiz.time_limit} minutes, Time taken: ${Math.ceil(completionTime / 60)} minutes`,
         );
+      } else if (completionTime > timeLimitInSeconds) {
+        // Late but within grace period - allow but mark as late
+        isLate = true;
       }
     }
 
@@ -248,7 +262,7 @@ export class TestAttemptService {
     attempt.completion_time = completionTime;
     attempt.completed_at = completedAt;
     attempt.answers = processedAnswers;
-    attempt.status = 'completed';
+    attempt.status = isLate ? 'late' : 'completed';
 
     await attempt.save();
 
@@ -347,5 +361,118 @@ export class TestAttemptService {
         is_correct: answer.is_correct,
       })),
     };
+  }
+
+  /**
+   * Cron job to automatically timeout/abandon test attempts that exceed time limit
+   * Runs every minute to check for overdue test attempts
+   */
+  @Cron('0 * * * * *', { name: 'timeoutOverdueAttempts' }) // Run every minute
+  async timeoutOverdueAttempts() {
+    try {
+      // Find all in_progress attempts
+      const inProgressAttempts = await this.testAttemptModel.find({
+        status: 'in_progress',
+      }).populate('quiz_id');
+
+      const now = new Date();
+      let timeoutCount = 0;
+
+      for (const attempt of inProgressAttempts) {
+        const quiz = attempt.quiz_id as any;
+        
+        // Skip if quiz doesn't have time limit
+        if (!quiz.time_limit) {
+          continue;
+        }
+
+        const timeLimitInMs = quiz.time_limit * 60 * 1000; // Convert minutes to milliseconds
+        const elapsedTime = now.getTime() - attempt.started_at.getTime();
+
+        // If elapsed time exceeds time limit, mark as abandoned
+        if (elapsedTime > timeLimitInMs) {
+          attempt.status = 'abandoned';
+          attempt.completed_at = now;
+          attempt.completion_time = Math.floor(elapsedTime / 1000);
+          
+          // Grade any completed questions
+          if (attempt.answers && attempt.answers.length > 0) {
+            const questions = await this.questionModel.find({
+              quiz_id: attempt.quiz_id,
+            });
+            
+            let correctAnswers = 0;
+            for (const answer of attempt.answers) {
+              if (answer.is_correct) {
+                correctAnswers++;
+              }
+            }
+            
+            attempt.correct_answers = correctAnswers;
+            attempt.incorrect_answers = attempt.answers.length - correctAnswers;
+            attempt.score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
+          }
+
+          await attempt.save();
+          timeoutCount++;
+        }
+      }
+
+      if (timeoutCount > 0) {
+        console.log(`Automatically timed out ${timeoutCount} test attempts`);
+      }
+    } catch (error) {
+      console.error('Error in timeout cron job:', error);
+    }
+  }
+
+  /**
+   * Helper method to check if a test attempt should be timed out
+   * Can be called manually or used in validation
+   */
+  async checkAndTimeoutAttempt(attemptId: string): Promise<boolean> {
+    const attempt = await this.testAttemptModel.findById(attemptId).populate('quiz_id');
+    
+    if (!attempt || attempt.status !== 'in_progress') {
+      return false;
+    }
+
+    const quiz = attempt.quiz_id as any;
+    if (!quiz.time_limit) {
+      return false;
+    }
+
+    const now = new Date();
+    const timeLimitInMs = quiz.time_limit * 60 * 1000;
+    const elapsedTime = now.getTime() - attempt.started_at.getTime();
+
+    if (elapsedTime > timeLimitInMs) {
+      attempt.status = 'abandoned';
+      attempt.completed_at = now;
+      attempt.completion_time = Math.floor(elapsedTime / 1000);
+      
+      // Grade any completed questions
+      if (attempt.answers && attempt.answers.length > 0) {
+        const questions = await this.questionModel.find({
+          quiz_id: attempt.quiz_id,
+        });
+        
+        let correctAnswers = 0;
+        for (const answer of attempt.answers) {
+          if (answer.is_correct) {
+            correctAnswers++;
+          }
+        }
+        
+        attempt.correct_answers = correctAnswers;
+        attempt.incorrect_answers = attempt.answers.length - correctAnswers;
+        attempt.score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
+      }
+
+      await attempt.save();
+      return true;
+    }
+
+    return false;
   }
 }
