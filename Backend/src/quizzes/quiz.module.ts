@@ -5,6 +5,7 @@ import { QuizService } from './quiz.service';
 import { QuizController } from './quiz.controller';
 import { Question, QuestionSchema } from '../questions/question.schema';
 import { Answer, AnswerSchema } from '../answers/answer.schema';
+import { User, UserSchema } from '../users/user.schema';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { Answer, AnswerSchema } from '../answers/answer.schema';
       { name: Quiz.name, schema: QuizSchema },
       { name: Question.name, schema: QuestionSchema },
       { name: Answer.name, schema: AnswerSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [QuizController],

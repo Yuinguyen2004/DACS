@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -9,6 +11,7 @@ import { TestAttempt } from './test-attempt.schema';
 import { Quiz } from '../quizzes/quiz.schema';
 import { Question } from '../questions/question.schema';
 import { Answer } from '../answers/answer.schema';
+import { User } from '../users/user.schema';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { time } from 'console';
 import { StartTestResponseDto } from './dto/start-test-reponse.dto';
@@ -20,6 +23,7 @@ export class TestAttemptService {
     @InjectModel(Quiz.name) private quizModel: Model<Quiz>,
     @InjectModel(Question.name) private questionModel: Model<Question>,
     @InjectModel(Answer.name) private answerModel: Model<Answer>,
+    @InjectModel(User.name) private userModel: Model<User>,
   ) {}
 
   /**
@@ -40,6 +44,25 @@ export class TestAttemptService {
     const quiz = await this.quizModel.findById(quiz_id);
     if (!quiz) {
       throw new NotFoundException('Quiz not found');
+    }
+
+    // 2. Kiem tra premium quiz access
+    if (quiz.is_premium) {
+      const user = await this.userModel.findById(userId).populate('package_id');
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      // Chi admin hoac user co package co gia > 0 moi co the truy cap premium quiz
+      const isAdmin = user.role === 'admin';
+      const hasPremiumPackage = user.package_id && 
+        (typeof user.package_id === 'object' ? 
+          (user.package_id as any).price > 0 : 
+          false);
+
+      if (!isAdmin && !hasPremiumPackage) {
+        throw new ForbiddenException('Bạn cần nâng cấp gói premium để truy cập quiz này');
+      }
     }
 
     // 2. Lay tat ca cau hoi cua quiz

@@ -6,6 +6,7 @@ import { TestAttempt, TestAttemptSchema } from './test-attempt.schema';
 import { Quiz, QuizSchema } from '../quizzes/quiz.schema';
 import { Question, QuestionSchema } from '../questions/question.schema';
 import { Answer, AnswerSchema } from '../answers/answer.schema';
+import { User, UserSchema } from '../users/user.schema';
 
 /**
  * Module chinh cua test-attempts
@@ -20,6 +21,7 @@ import { Answer, AnswerSchema } from '../answers/answer.schema';
       { name: Quiz.name, schema: QuizSchema },
       { name: Question.name, schema: QuestionSchema },
       { name: Answer.name, schema: AnswerSchema },
+      { name: User.name, schema: UserSchema },
     ]),
   ],
   controllers: [TestAttemptController],

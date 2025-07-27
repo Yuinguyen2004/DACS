@@ -14,6 +14,7 @@ import {
   UseInterceptors,
   UsePipes,
   ValidationPipe,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { CreateQuizDto } from './dto/create-quiz.dto';
@@ -31,8 +32,32 @@ export class QuizController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.quizService.findOne(id);
+  @UseGuards(AuthGuard('jwt'))
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    const quiz = await this.quizService.findOne(id);
+    if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${id} not found`);
+    }
+
+    // Kiem tra premium quiz access
+    if (quiz.is_premium) {
+      const user = await this.quizService.getUserWithPackage(req.user.userId);
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      const isAdmin = user.role === 'admin';
+      const hasPremiumPackage = user.package_id && 
+        (typeof user.package_id === 'object' ? 
+          (user.package_id as any).price > 0 : 
+          false);
+
+      if (!isAdmin && !hasPremiumPackage) {
+        throw new ForbiddenException('Bạn cần nâng cấp gói premium để truy cập quiz này');
+      }
+    }
+
+    return quiz;
   }
 
   @Post()
@@ -64,7 +89,11 @@ export class QuizController {
       quizUserId = (quizUserId as { _id: any })._id;
     }
     // chuyen doi MongoDB ObjectId sang string de so sanh
-    if (quizUserId.toString() !== req.user.userId) {
+    // Admin hoac chu so huu moi co the sua quiz
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = quizUserId.toString() === req.user.userId;
+    
+    if (!isAdmin && !isOwner) {
       throw new ForbiddenException('Bạn không có quyền sửa quiz này');
     }
 
@@ -88,7 +117,11 @@ export class QuizController {
       quizUserId = (quizUserId as { _id: any })._id;
     }
     // chuyen doi MongoDB ObjectId sang string de so sanh
-    if (quizUserId.toString() !== req.user.userId) {
+    // Admin hoac chu so huu moi co the xoa quiz
+    const isAdmin = req.user.role === 'admin';
+    const isOwner = quizUserId.toString() === req.user.userId;
+    
+    if (!isAdmin && !isOwner) {
       throw new ForbiddenException('Bạn không có quyền xóa quiz này');
     }
 

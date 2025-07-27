@@ -15,6 +15,7 @@ import { CreateQuizDto } from './dto/create-quiz.dto';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { Question } from '../questions/question.schema';
 import { Answer } from '../answers/answer.schema';
+import { User } from '../users/user.schema';
 import { GoogleGenerativeAI } from '@google/generative-ai'; // Thư viện Gemini AI
 
 interface IExtractedQuiz {
@@ -44,6 +45,7 @@ export class QuizService {
     @InjectModel(Quiz.name) private quizModel: Model<Quiz>, // Model Quiz để thao tác với database
     @InjectModel(Question.name) private questionModel: Model<Question>, // Model Question
     @InjectModel(Answer.name) private answerModel: Model<Answer>, // Model Answer
+    @InjectModel(User.name) private userModel: Model<User>, // Model User for premium access
   ) {}
 
   /**
@@ -61,6 +63,13 @@ export class QuizService {
    */
   async findOne(id: string) {
     return this.quizModel.findById(id).populate('user_id', 'username email');
+  }
+
+  /**
+   * Helper method to get user with populated package info
+   */
+  async getUserWithPackage(userId: string) {
+    return this.userModel.findById(userId).populate('package_id');
   }
 
   /**
