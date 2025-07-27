@@ -5,6 +5,9 @@ import UpgradePremiumPage from './components/quizzes/UpgradePremiumPage'
 import QuizTakingPage from './components/quizzes/QuizTakingPage'
 import Quizhomepage from './components/quizzes/QuizHomepage'
 import QuizHistoryPage from './components/quizzes/QuizHistoryPage'
+import CreateQuizPage from './components/teachers/CreateQuizPage'
+import ManageQuizzesPage from './components/teachers/ManageQuizzesPage'
+import AdminDashboardPage from './components/teachers/admin/AdminDashboardPage'
 import QuizResultPage from './components/quizzes/QuizResultPage' // ví dụ thêm trang kết quả
 import { Routes, Route } from 'react-router-dom'
 
@@ -20,6 +23,9 @@ function App() {
           <Route path="/homepage" element={<Quizhomepage />} />
           <Route path="/test" element={<QuizTakingPage />} />
           <Route path="/upgrade" element={<UpgradePremiumPage />} />
+          <Route path="/create" element={<CreateQuizPage />} />
+          <Route path="/manage" element={<ManageQuizzesPage />} />
+          <Route path="/admin" element={<AdminDashboardPage />} />
         </Routes>
       </main>
       <AppFooter />

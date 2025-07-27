@@ -140,7 +140,7 @@ export default function CreateQuizPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-lg font-semibold text-gray-900">Create New Quiz</h1>
+              <h1 className="text-lg font-semibold text-gray-900">Tạo bài kiểm tra mới</h1>
             </div>
           </div>
         </div>
@@ -150,17 +150,17 @@ export default function CreateQuizPage() {
         {/* Quiz Details Card */}
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-900">Quiz Details</CardTitle>
-            <CardDescription className="text-gray-600">Enter the basic information for your new quiz.</CardDescription>
+            <CardTitle className="text-2xl font-bold text-gray-900">Thông tin bài kiểm tra</CardTitle>
+            <CardDescription className="text-gray-600">Nhập thông tin cơ bản cho bài kiểm tra mới của bạn.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="quizName" className="text-sm font-medium text-gray-700">
-                Quiz Name
+                Tên bài kiểm tra
               </Label>
               <Input
                 id="quizName"
-                placeholder="e.g., JavaScript Fundamentals"
+                placeholder="Ví dụ: Cơ bản về JavaScript"
                 value={quizName}
                 onChange={(e) => setQuizName(e.target.value)}
                 className="h-11 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
@@ -170,7 +170,7 @@ export default function CreateQuizPage() {
               <div className="flex items-center space-x-3">
                 <Crown className="w-5 h-5 text-orange-500" />
                 <Label htmlFor="isPremium" className="text-base font-medium text-gray-700">
-                  Mark as Premium Quiz
+                  Đánh dấu là bài kiểm tra Premium
                 </Label>
               </div>
               <Switch
@@ -186,15 +186,15 @@ export default function CreateQuizPage() {
         {/* Import Questions Section */}
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-900">Import Questions</CardTitle>
+            <CardTitle className="text-2xl font-bold text-gray-900">Nhập câu hỏi</CardTitle>
             <CardDescription className="text-gray-600">
-              Upload a file to quickly add multiple questions.
+              Tải lên tệp để nhanh chóng thêm nhiều câu hỏi.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <Label htmlFor="file-import" className="sr-only">
-                Import File
+                Nhập tệp
               </Label>
               <Input
                 id="file-import"
@@ -208,10 +208,10 @@ export default function CreateQuizPage() {
                 className="h-11 px-6 bg-gray-900 hover:bg-gray-800 text-white font-medium flex-shrink-0"
               >
                 <Upload className="w-5 h-5 mr-2" />
-                Import Questions
+                Nhập câu hỏi
               </Button>
             </div>
-            <p className="text-sm text-gray-500">Supported formats: .docx, .xlsx, .csv</p>
+            <p className="text-sm text-gray-500">Định dạng hỗ trợ: .docx, .xlsx, .csv</p>
             {importError && (
               <div className="flex items-center text-red-600 text-sm mt-2">
                 <FileWarning className="w-4 h-4 mr-2" />
@@ -224,9 +224,9 @@ export default function CreateQuizPage() {
         {/* Questions Section */}
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-900">Quiz Questions</CardTitle>
+            <CardTitle className="text-2xl font-bold text-gray-900">Câu hỏi bài kiểm tra</CardTitle>
             <CardDescription className="text-gray-600">
-              Add questions and their multiple-choice options. Select the correct answer for each.
+              Thêm câu hỏi và các tùy chọn trả lời trắc nghiệm. Chọn câu trả lời đúng cho mỗi câu hỏi.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-8">
@@ -234,7 +234,7 @@ export default function CreateQuizPage() {
               questions.map((question, qIndex) => (
                 <div key={question.id} className="space-y-6 p-6 border border-gray-200 rounded-lg bg-white">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Question {qIndex + 1}</h3>
+                    <h3 className="text-lg font-semibold text-gray-800">Câu hỏi {qIndex + 1}</h3>
                     {questions.length > 1 && (
                       <Button
                         variant="ghost"
@@ -243,18 +243,18 @@ export default function CreateQuizPage() {
                         className="text-red-500 hover:bg-red-50"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
-                        Remove
+                        Xóa
                       </Button>
                     )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor={`question-text-${question.id}`} className="text-sm font-medium text-gray-700">
-                      Question Text
+                      Nội dung câu hỏi
                     </Label>
                     <Textarea
                       id={`question-text-${question.id}`}
-                      placeholder="Enter your question here..."
+                      placeholder="Nhập nội dung câu hỏi ở đây..."
                       value={question.text}
                       onChange={(e) => updateQuestionText(question.id, e.target.value)}
                       rows={3}
@@ -263,7 +263,7 @@ export default function CreateQuizPage() {
                   </div>
 
                   <div className="space-y-4">
-                    <Label className="text-sm font-medium text-gray-700">Answer Options</Label>
+                    <Label className="text-sm font-medium text-gray-700">Đáp án lựa chọn</Label>
                     <RadioGroup
                       value={question.correctAnswerIndex !== null ? String(question.correctAnswerIndex) : undefined}
                       onValueChange={(value) => updateCorrectAnswer(question.id, Number.parseInt(value))}
@@ -293,7 +293,7 @@ export default function CreateQuizPage() {
               ))
             ) : (
               <div className="text-center py-8 text-gray-600">
-                <p>No questions added yet. Start by adding one manually or importing from a file.</p>
+                <p>Chưa có câu hỏi nào được thêm. Bắt đầu bằng cách <strong>thêm một câu hỏi mới</strong> hoặc <strong>nhập từ tệp</strong>.</p>
               </div>
             )}
 
@@ -303,7 +303,7 @@ export default function CreateQuizPage() {
               className="w-full h-12 border-dashed border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
             >
               <PlusCircle className="w-5 h-5 mr-2" />
-              Add New Question Manually
+              Thêm câu hỏi mới
             </Button>
           </CardContent>
         </Card>
@@ -315,7 +315,7 @@ export default function CreateQuizPage() {
             className="h-12 px-8 text-lg font-semibold bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1"
           >
             <Save className="w-5 h-5 mr-3" />
-            Save Quiz
+            Lưu Quiz
           </Button>
         </div>
       </main>

@@ -20,11 +20,11 @@ export default function QuizAuthPage() {
             <BookOpen className="w-8 h-8 text-white" />
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-2xl font-bold text-gray-800">QuizMaster</CardTitle>
+            <CardTitle className="text-2xl font-bold text-gray-800">Quizz</CardTitle>
             <CardDescription className="text-gray-600">
               {isLogin
-                ? "Welcome back! Sign in to continue your learning journey."
-                : "Join thousands of learners and start your quiz adventure!"}
+                ? "Chào mừng bạn quay lại! Hãy đăng nhập để tiếp tục hành trình học tập của bạn."
+                : "Tham gia cùng hàng nghìn người học và bắt đầu chuyến phiêu lưu làm bài quiz của bạn!"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -34,12 +34,12 @@ export default function QuizAuthPage() {
             {!isLogin && (
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                  Full Name
+                  Họ và Tên
                 </Label>
                 <Input
                   id="name"
                   type="text"
-                  placeholder="Enter your full name"
+                  placeholder="Nhập họ và tên của bạn"
                   className="h-11 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
                   required
                 />
@@ -48,12 +48,12 @@ export default function QuizAuthPage() {
 
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                Email Address
+                Địa chỉ Email
               </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="Enter your email"
+                placeholder="Nhập địa chỉ email của bạn"
                 className="h-11 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
                 required
               />
@@ -61,13 +61,13 @@ export default function QuizAuthPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                Password
+                Mật khẩu
               </Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder="Nhập mật khẩu của bạn"
                   className="h-11 pr-10 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
                   required
                 />
@@ -91,13 +91,13 @@ export default function QuizAuthPage() {
             {!isLogin && (
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  Confirm Password
+                  Xác nhận mật khẩu
                 </Label>
                 <div className="relative">
                   <Input
                     id="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
+                    placeholder="Nhập lại mật khẩu của bạn"
                     className="h-11 pr-10 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
                     required
                   />
@@ -123,14 +123,14 @@ export default function QuizAuthPage() {
               type="submit"
               className="w-full h-11 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white font-medium shadow-md"
             >
-              {isLogin ? "Sign In" : "Create Account"}
+              {isLogin ? "Đăng nhập" : "Tạo tài khoản"}
             </Button>
           </form>
 
           {isLogin && (
             <div className="text-center">
               <Button variant="link" className="text-sm text-orange-600 hover:text-orange-700 p-0 h-auto font-normal">
-                Forgot your password?
+                Quên mật khẩu?
               </Button>
             </div>
           )}
@@ -145,14 +145,14 @@ export default function QuizAuthPage() {
           </div>
 
           <div className="text-center space-y-2">
-            <p className="text-sm text-gray-600">{isLogin ? "Don't have an account?" : "Already have an account?"}</p>
+            <p className="text-sm text-gray-600">{isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}</p>
             <Button
               type="button"
               variant="outline"
               className="w-full h-11 border-gray-200 text-gray-700 hover:bg-gray-50 bg-transparent"
               onClick={() => setIsLogin(!isLogin)}
             >
-              {isLogin ? "Create New Account" : "Sign In Instead"}
+              {isLogin ? "Tạo tài khoản mới" : "Đăng nhập"}
             </Button>
           </div>
         </CardContent>

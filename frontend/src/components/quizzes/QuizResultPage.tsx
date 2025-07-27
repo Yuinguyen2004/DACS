@@ -103,10 +103,10 @@ export default function QuizResults({ isPremium = false }: QuizResultsProps) {
   const incorrectAnswers = quizResults.totalQuestions - quizResults.correctAnswers
 
   const getScoreMessage = () => {
-    if (scorePercentage >= 90) return { message: "Excellent work!", icon: Trophy, color: "text-yellow-600" }
-    if (scorePercentage >= 80) return { message: "Great job!", icon: Star, color: "text-green-600" }
-    if (scorePercentage >= 70) return { message: "Good effort!", icon: Target, color: "text-blue-600" }
-    return { message: "Keep practicing!", icon: TrendingUp, color: "text-orange-600" }
+    if (scorePercentage >= 90) return { message: "Rất tuyệt vời!", icon: Trophy, color: "text-yellow-600" }
+    if (scorePercentage >= 80) return { message: "Rất tốt!", icon: Star, color: "text-green-600" }
+    if (scorePercentage >= 70) return { message: "Cố gắng tốt!", icon: Target, color: "text-blue-600" }
+    return { message: "Tiếp tục luyện tập!", icon: TrendingUp, color: "text-orange-600" }
   }
 
   const scoreMessage = getScoreMessage()
@@ -155,15 +155,15 @@ export default function QuizResults({ isPremium = false }: QuizResultsProps) {
                 <div className="text-3xl font-bold text-gray-900">
                   {quizResults.correctAnswers}/{quizResults.totalQuestions}
                 </div>
-                <div>Final Score</div>
+                <div>Điểm tổng</div>
               </div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-gray-900">{Math.round(scorePercentage)}%</div>
-                <div>Accuracy</div>
+                <div>Độ chính xác</div>
               </div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-gray-900">{quizResults.timeSpent}</div>
-                <div>Time Spent</div>
+                <div>Thời gian làm bài</div>
               </div>
             </div>
           </CardHeader>
@@ -176,11 +176,11 @@ export default function QuizResults({ isPremium = false }: QuizResultsProps) {
                 className="flex items-center justify-center space-x-2 h-12 px-6 border-gray-300 bg-white hover:bg-gray-50"
               >
                 <Home className="w-4 h-4" />
-                <span>Go to Home</span>
+                <span>Về trang chủ</span>
               </Button>
               <Button className="flex items-center justify-center space-x-2 h-12 px-6 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white">
                 <RotateCcw className="w-4 h-4" />
-                <span>Retry Quiz</span>
+                <span>Thử lại bài kiểm tra</span>
               </Button>
             </div>
           </CardContent>
@@ -265,10 +265,10 @@ export default function QuizResults({ isPremium = false }: QuizResultsProps) {
             <Card className="mb-6 border-2 border-dashed border-gray-300 bg-gray-50">
               <CardContent className="text-center py-12">
                 <Lock className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Detailed Results Locked</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Chi tiết kết quả đã bị khóa</h3>
                 <p className="text-gray-600 mb-4 max-w-md mx-auto">
-                  You can see your total score above, but detailed question breakdowns and explanations are available
-                  with Premium.
+                  Bạn có thể xem điểm tổng của mình ở trên, nhưng phân tích chi tiết từng câu hỏi và giải thích chỉ có sẵn
+                  với gói Premium.
                 </p>
                 <Badge variant="outline" className="text-gray-600">
                   Free Plan
@@ -282,9 +282,9 @@ export default function QuizResults({ isPremium = false }: QuizResultsProps) {
                 <div className="mx-auto w-16 h-16 bg-gradient-to-br from-orange-400 to-pink-400 rounded-full flex items-center justify-center mb-4">
                   <Crown className="w-8 h-8 text-white" />
                 </div>
-                <CardTitle className="text-2xl font-bold text-gray-900 mb-2">Unlock Your Full Potential</CardTitle>
+                <CardTitle className="text-2xl font-bold text-gray-900 mb-2">Khám phá tiềm năng của bạn</CardTitle>
                 <CardDescription className="text-lg text-gray-600">
-                  Upgrade to Premium and get detailed insights into every question
+                  Nâng cấp lên Premium để nhận phân tích chi tiết cho từng câu hỏi
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -292,40 +292,40 @@ export default function QuizResults({ isPremium = false }: QuizResultsProps) {
                   <div className="space-y-4">
                     <h4 className="font-semibold text-gray-900 flex items-center">
                       <Zap className="w-5 h-5 text-orange-500 mr-2" />
-                      What You'll Get:
+                      Bạn sẽ nhận được:
                     </h4>
                     <div className="space-y-3">
                       <div className="flex items-center space-x-3">
                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span className="text-sm text-gray-700">Detailed answer explanations for every question</span>
+                        <span className="text-sm text-gray-700">Giải thích chi tiết đáp án cho mọi câu hỏi</span>
                       </div>
                       <div className="flex items-center space-x-3">
                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span className="text-sm text-gray-700">See exactly which answers were wrong and why</span>
+                        <span className="text-sm text-gray-700">Xem chính xác câu nào sai và lý do vì sao</span>
                       </div>
                       <div className="flex items-center space-x-3">
                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span className="text-sm text-gray-700">Learning tips and best practices</span>
+                        <span className="text-sm text-gray-700">Mẹo học tập và các phương pháp tốt nhất</span>
                       </div>
                     </div>
                   </div>
                   <div className="space-y-4">
                     <h4 className="font-semibold text-gray-900 flex items-center">
                       <Star className="w-5 h-5 text-orange-500 mr-2" />
-                      Premium Benefits:
+                      Quyền lợi Premium:
                     </h4>
                     <div className="space-y-3">
                       <div className="flex items-center space-x-3">
                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span className="text-sm text-gray-700">Unlimited quiz attempts</span>
+                        <span className="text-sm text-gray-700">Làm bài kiểm tra không giới hạn</span>
                       </div>
                       <div className="flex items-center space-x-3">
                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span className="text-sm text-gray-700">Advanced progress tracking</span>
+                        <span className="text-sm text-gray-700">Theo dõi tiến trình nâng cao</span>
                       </div>
                       <div className="flex items-center space-x-3">
                         <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span className="text-sm text-gray-700">Priority customer support</span>
+                        <span className="text-sm text-gray-700">Hỗ trợ khách hàng ưu tiên</span>
                       </div>
                     </div>
                   </div>
@@ -334,9 +334,9 @@ export default function QuizResults({ isPremium = false }: QuizResultsProps) {
                 <div className="text-center">
                   <Button className="w-full sm:w-auto h-14 px-8 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white font-semibold text-lg">
                     <Crown className="w-5 h-5 mr-2" />
-                    Upgrade to Premium - $9.99/month
+                    Nâng cấp lên Premium - $9.99/tháng
                   </Button>
-                  <p className="text-xs text-gray-500 mt-3">Cancel anytime • 7-day free trial</p>
+                  <p className="text-xs text-gray-500 mt-3">Hủy bất cứ lúc nào • Dùng thử miễn phí 7 ngày</p>
                 </div>
               </CardContent>
             </Card>

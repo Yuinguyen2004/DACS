@@ -135,7 +135,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{dashboardStats.totalUsers}</p>
-                <p className="text-sm text-gray-600">Total Users</p>
+                <p className="text-sm text-gray-600">Tổng số người dùng</p>
               </div>
             </CardContent>
           </Card>
@@ -146,7 +146,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{dashboardStats.totalTeachers}</p>
-                <p className="text-sm text-gray-600">Total Teachers</p>
+                <p className="text-sm text-gray-600">Tổng số giáo viên</p>
               </div>
             </CardContent>
           </Card>
@@ -157,7 +157,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{dashboardStats.totalQuizzes}</p>
-                <p className="text-sm text-gray-600">Total Quizzes</p>
+                <p className="text-sm text-gray-600">Tổng số bài kiểm tra</p>
               </div>
             </CardContent>
           </Card>
@@ -168,7 +168,7 @@ export default function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-3xl font-bold text-gray-900">{dashboardStats.totalAttempts}</p>
-                <p className="text-sm text-gray-600">Total Attempts</p>
+                <p className="text-sm text-gray-600">Tổng số lượt làm bài</p>
               </div>
             </CardContent>
           </Card>
@@ -177,15 +177,15 @@ export default function AdminDashboardPage() {
         {/* Users/Teachers Management */}
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-900">Users & Teachers</CardTitle>
-            <CardDescription className="text-gray-600">Manage user accounts and roles.</CardDescription>
+            <CardTitle className="text-2xl font-bold text-gray-900">Người dùng & Giáo viên</CardTitle>
+            <CardDescription className="text-gray-600">Quản lý tài khoản người dùng và vai trò.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-6 border-b border-gray-100">
               <div className="relative flex-1 w-full sm:w-auto">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  placeholder="Search users by name or email..."
+                  placeholder="Tìm kiếm người dùng theo tên hoặc email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 h-10 border-gray-200 focus:border-orange-400 focus:ring-orange-400 w-full"
@@ -198,9 +198,9 @@ export default function AdminDashboardPage() {
                     <SelectValue placeholder="Filter Role" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="User">Users</SelectItem>
-                    <SelectItem value="Teacher">Teachers</SelectItem>
+                    <SelectItem value="all">Tất cả vai trò</SelectItem>
+                    <SelectItem value="User">Người dùng</SelectItem>
+                    <SelectItem value="Teacher">Giáo viên</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -208,9 +208,9 @@ export default function AdminDashboardPage() {
                     <SelectValue placeholder="Filter Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="Active">Active</SelectItem>
-                    <SelectItem value="Inactive">Inactive</SelectItem>
+                    <SelectItem value="all">Tất cả trạng thái</SelectItem>
+                    <SelectItem value="Active">Đang hoạt động</SelectItem>
+                    <SelectItem value="Inactive">Không hoạt động</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -221,12 +221,12 @@ export default function AdminDashboardPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="font-semibold text-gray-900">Name</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Tên</TableHead>
                       <TableHead className="font-semibold text-gray-900">Email</TableHead>
                       <TableHead className="font-semibold text-gray-900">Role</TableHead>
-                      <TableHead className="font-semibold text-gray-900">Status</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Trạng thái</TableHead>
                       <TableHead className="font-semibold text-gray-900">Premium</TableHead>
-                      <TableHead className="font-semibold text-gray-900 text-right">Actions</TableHead>
+                      <TableHead className="font-semibold text-gray-900 text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -281,7 +281,7 @@ export default function AdminDashboardPage() {
                             onClick={() => handleEditUser(user.id)}
                             className="h-8 px-3 text-blue-600 border-blue-200 hover:bg-blue-50 bg-transparent"
                           >
-                            Edit
+                            Sửa
                           </Button>
                           <Button
                             variant="outline"
@@ -289,7 +289,7 @@ export default function AdminDashboardPage() {
                             onClick={() => handleDeleteUser(user.id)}
                             className="h-8 px-3 text-red-500 border-red-200 hover:bg-red-50 bg-transparent"
                           >
-                            Delete
+                            Xóa
                           </Button>
                         </TableCell>
                       </TableRow>

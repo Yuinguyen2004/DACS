@@ -1,97 +1,97 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Filter, BookOpen, User, Crown, Play, Lock, Clock, Users } from "lucide-react"
+import { Search, Filter, BookOpen, Crown, Play, Lock, Clock, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 // Mock quiz data
 const quizzes = [
   {
     id: 1,
-    title: "JavaScript Fundamentals",
-    description: "Master the basics of JavaScript programming",
+    title: "Cơ bản về JavaScript",
+    description: "Nắm vững những kiến thức cơ bản về lập trình JavaScript",
     questions: 25,
-    duration: "30 min",
-    difficulty: "Beginner",
-    category: "Programming",
+    duration: "30 phút",
+    difficulty: "Người mới bắt đầu",
+    category: "Lập trình",
     isPremium: false,
     participants: 1234,
     rating: 4.8,
   },
   {
     id: 2,
-    title: "Advanced React Patterns",
-    description: "Deep dive into React hooks, context, and performance",
+    title: "Các mẫu nâng cao trong React",
+    description: "Khám phá sâu về hooks, context và tối ưu hiệu suất trong React",
     questions: 40,
-    duration: "45 min",
-    difficulty: "Advanced",
-    category: "Programming",
+    duration: "45 phút",
+    difficulty: "Nâng cao",
+    category: "Lập trình",
     isPremium: true,
     participants: 567,
     rating: 4.9,
   },
   {
     id: 3,
-    title: "World Geography",
-    description: "Test your knowledge of countries, capitals, and landmarks",
+    title: "Thế giới Địa lý",
+    description: "Kiểm tra kiến thức của bạn về các quốc gia, thủ đô và địa danh",
     questions: 50,
-    duration: "35 min",
-    difficulty: "Intermediate",
-    category: "Geography",
+    duration: "35 phút",
+    difficulty: "Trung cấp",
+    category: "Địa lý",
     isPremium: false,
     participants: 2341,
     rating: 4.6,
   },
   {
     id: 4,
-    title: "Machine Learning Basics",
-    description: "Introduction to ML algorithms and concepts",
+    title: "Kiến thức cơ bản về Machine Learning",
+    description: "Giới thiệu các thuật toán và khái niệm cơ bản về học máy",
     questions: 30,
-    duration: "40 min",
-    difficulty: "Intermediate",
-    category: "Technology",
+    duration: "40 phút",
+    difficulty: "Trung cấp",
+    category: "Công nghệ",
     isPremium: true,
     participants: 789,
     rating: 4.7,
   },
   {
     id: 5,
-    title: "English Grammar",
-    description: "Perfect your grammar and language skills",
+    title: "Ngữ pháp tiếng Anh",
+    description: "Hoàn thiện kỹ năng ngữ pháp và ngôn ngữ của bạn",
     questions: 35,
-    duration: "25 min",
-    difficulty: "Beginner",
-    category: "Language",
+    duration: "25 phút",
+    difficulty: "Người mới bắt đầu",
+    category: "Ngôn ngữ",
     isPremium: false,
     participants: 3456,
     rating: 4.5,
   },
   {
     id: 6,
-    title: "Data Structures & Algorithms",
-    description: "Essential CS concepts for technical interviews",
+    title: "Cấu trúc dữ liệu & Thuật toán",
+    description: "Những kiến thức thiết yếu về khoa học máy tính cho phỏng vấn kỹ thuật",
     questions: 60,
-    duration: "60 min",
-    difficulty: "Advanced",
-    category: "Programming",
+    duration: "60 phút",
+    difficulty: "Nâng cao",
+    category: "Lập trình",
     isPremium: true,
     participants: 1123,
     rating: 4.9,
   },
 ]
 
+
 export default function QuizHomepage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [selectedDifficulty, setSelectedDifficulty] = useState("all")
 
-  const categories = ["all", "Programming", "Geography", "Technology", "Language"]
-  const difficulties = ["all", "Beginner", "Intermediate", "Advanced"]
+  const categories = ["all", "Lập trình", "Địa lý", "Công nghệ", "Ngôn ngữ"]
+  const difficulties = ["all", "Người mới bắt đầu", "Trung cấp", "Nâng cao"]
 
   const filteredQuizzes = quizzes.filter((quiz) => {
     const matchesSearch =
@@ -118,45 +118,13 @@ export default function QuizHomepage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Logo */}
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">QuizMaster</h1>
-                <p className="text-xs text-gray-500">Practice & Learn</p>
-              </div>
-            </div>
-
-            {/* Right side */}
-            <div className="flex items-center space-x-4">
-              <Button className="bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white font-medium">
-                <Crown className="w-4 h-4 mr-2" />
-                Upgrade Premium
-              </Button>
-              <Avatar className="w-10 h-10">
-                <AvatarImage src="/placeholder.svg?height=40&width=40" alt="User" />
-                <AvatarFallback className="bg-gradient-to-br from-orange-400 to-pink-400 text-white">
-                  <User className="w-5 h-5" />
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          </div>
-        </div>
-      </header>
-
       {/* Main Content */}
-      <main className="pt-16">
+      <main>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Welcome Section */}
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome back, Alex!</h2>
-            <p className="text-gray-600">Ready to challenge yourself? Choose a quiz and start learning.</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Chào mừng trở lại, Alex!</h2>
+            <p className="text-gray-600">Sẵn sàng thử thách bản thân chưa? Chọn một bài quiz và bắt đầu học tập.</p>
           </div>
 
           {/* Search and Filters */}
@@ -165,7 +133,7 @@ export default function QuizHomepage() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                 <Input
-                  placeholder="Search quizzes..."
+                  placeholder="Tìm kiếm bài quiz..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 h-12 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
@@ -180,7 +148,7 @@ export default function QuizHomepage() {
                   <SelectContent>
                     {categories.map((category) => (
                       <SelectItem key={category} value={category}>
-                        {category === "all" ? "All Categories" : category}
+                        {category === "all" ? "Tất cả các danh mục" : category}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -228,7 +196,7 @@ export default function QuizHomepage() {
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <div className="flex items-center">
                         <BookOpen className="w-4 h-4 mr-1" />
-                        {quiz.questions} questions
+                        {quiz.questions} câu hỏi
                       </div>
                       <div className="flex items-center">
                         <Clock className="w-4 h-4 mr-1" />
@@ -238,7 +206,7 @@ export default function QuizHomepage() {
                     <div className="flex items-center justify-between text-sm text-gray-600">
                       <div className="flex items-center">
                         <Users className="w-4 h-4 mr-1" />
-                        {quiz.participants.toLocaleString()} taken
+                        {quiz.participants.toLocaleString()} đã làm
                       </div>
                       <div className="flex items-center">⭐ {quiz.rating}</div>
                     </div>

@@ -23,10 +23,10 @@ interface AppHeaderProps {
 
 export function AppHeader({ isLoggedIn = true, userName = "John Doe", userAvatarUrl }: AppHeaderProps) {
   const navigationLinks = [
-    { name: "Home", to: "/" },
-    { name: "My Quizzes", to: "/my-quizzes" },
-    { name: "History", to: "/history" },
-    { name: "Upgrade", to: "/upgrade" },
+    { name: "Trang chủ", to: "/homepage" },
+    { name: "Bài quiz của tôi", to: "/manage" },
+    { name: "Lịch sử", to: "/history" },
+    { name: "Nâng cấp", to: "/upgrade" },
   ]
 
   return (
@@ -38,7 +38,7 @@ export function AppHeader({ isLoggedIn = true, userName = "John Doe", userAvatar
             <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
-            <span className="text-xl font-bold text-gray-900">QuizMaster</span>
+            <span className="text-xl font-bold text-gray-900">Quizz</span>
           </Link>
         </div>
 
@@ -130,7 +130,7 @@ export function AppHeader({ isLoggedIn = true, userName = "John Doe", userAvatar
                   <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
                     <BookOpen className="w-5 h-5 text-white" />
                   </div>
-                  <span>QuizMaster</span>
+                  <span>Quizz</span>
                 </SheetTitle>
                 <SheetDescription className="sr-only">Main navigation and user options.</SheetDescription>
               </SheetHeader>

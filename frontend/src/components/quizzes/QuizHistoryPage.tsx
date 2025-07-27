@@ -13,96 +13,97 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 const quizHistory = [
   {
     id: 1,
-    quizName: "JavaScript Fundamentals",
+    quizName: "Những kiến thức cơ bản về JavaScript",
     date: "2024-01-15",
     score: 8,
     totalQuestions: 10,
     timeSpent: "18:45",
-    category: "Programming",
-    difficulty: "Beginner",
+    category: "Lập trình",
+    difficulty: "Người mới bắt đầu",
   },
   {
     id: 2,
-    quizName: "Advanced React Patterns",
+    quizName: "Các mẫu nâng cao trong React",
     date: "2024-01-14",
     score: 7,
     totalQuestions: 12,
     timeSpent: "25:30",
-    category: "Programming",
-    difficulty: "Advanced",
+    category: "Lập trình",
+    difficulty: "Nâng cao",
   },
   {
     id: 3,
-    quizName: "World Geography",
+    quizName: "Thế giới Địa lý",
     date: "2024-01-12",
     score: 15,
     totalQuestions: 20,
     timeSpent: "22:15",
-    category: "Geography",
-    difficulty: "Intermediate",
+    category: "Địa lý",
+    difficulty: "Trung cấp",
   },
   {
     id: 4,
-    quizName: "JavaScript Fundamentals",
+    quizName: "Những kiến thức cơ bản về JavaScript",
     date: "2024-01-10",
     score: 6,
     totalQuestions: 10,
     timeSpent: "21:30",
-    category: "Programming",
-    difficulty: "Beginner",
+    category: "Lập trình",
+    difficulty: "Người mới bắt đầu",
   },
   {
     id: 5,
-    quizName: "English Grammar",
+    quizName: "Ngữ pháp tiếng Anh",
     date: "2024-01-08",
     score: 12,
     totalQuestions: 15,
     timeSpent: "16:45",
-    category: "Language",
-    difficulty: "Beginner",
+    category: "Ngôn ngữ",
+    difficulty: "Người mới bắt đầu",
   },
   {
     id: 6,
-    quizName: "Machine Learning Basics",
+    quizName: "Kiến thức cơ bản về Machine Learning",
     date: "2024-01-05",
     score: 9,
     totalQuestions: 14,
     timeSpent: "28:20",
-    category: "Technology",
-    difficulty: "Intermediate",
+    category: "Công nghệ",
+    difficulty: "Trung cấp",
   },
   {
     id: 7,
-    quizName: "Data Structures & Algorithms",
+    quizName: "Cấu trúc dữ liệu & Thuật toán",
     date: "2024-01-03",
     score: 11,
     totalQuestions: 18,
     timeSpent: "35:10",
-    category: "Programming",
-    difficulty: "Advanced",
+    category: "Lập trình",
+    difficulty: "Nâng cao",
   },
   {
     id: 8,
-    quizName: "World Geography",
+    quizName: "Thế giới Địa lý",
     date: "2024-01-01",
     score: 13,
     totalQuestions: 20,
     timeSpent: "19:45",
-    category: "Geography",
-    difficulty: "Intermediate",
+    category: "Địa lý",
+    difficulty: "Trung cấp",
   },
 ]
+
 
 export default function QuizHistory() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [sortBy, setSortBy] = useState("date")
 
-  const categories = ["all", "Programming", "Geography", "Technology", "Language"]
+  const categories = ["all", "Lập trình", "Địa lý", "Công nghệ", "Ngôn ngữ"]
   const sortOptions = [
-    { value: "date", label: "Date (Newest)" },
-    { value: "score", label: "Score (Highest)" },
-    { value: "name", label: "Quiz Name" },
+    { value: "date", label: "Ngày (Mới nhất)" },
+    { value: "score", label: "Điểm số (Cao nhất)" },
+    { value: "name", label: "Tên bài quiz" },
   ]
 
   const getScoreColor = (score: number, total: number) => {
@@ -224,7 +225,7 @@ export default function QuizHistory() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <Input
-                  placeholder="Search quizzes..."
+                  placeholder="Tìm kiếm bài quiz..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 h-10 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
@@ -239,7 +240,7 @@ export default function QuizHistory() {
                   <SelectContent>
                     {categories.map((category) => (
                       <SelectItem key={category} value={category}>
-                        {category === "all" ? "All Categories" : category}
+                        {category === "all" ? "Tất cả các danh mục" : category}
                       </SelectItem>
                     ))}
                   </SelectContent>

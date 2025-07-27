@@ -151,14 +151,14 @@ export default function QuizTaking() {
             <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center mb-4">
               <Check className="w-8 h-8 text-white" />
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">Quiz Submitted!</CardTitle>
+            <CardTitle className="text-2xl font-bold text-gray-900">Bài kiểm tra đã được nộp!</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-600 mb-6">
-              You answered {answeredQuestions} out of {quizData.totalQuestions} questions.
+              Bạn đã trả lời {answeredQuestions} trên {quizData.totalQuestions} câu hỏi.
             </p>
             <Button className="w-full bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white">
-              View Results
+              Xem kết quả
             </Button>
           </CardContent>
         </Card>
@@ -194,9 +194,9 @@ export default function QuizTaking() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-gray-700">
-              Question {currentQuestion + 1} of {quizData.totalQuestions}
+              Câu hỏi {currentQuestion + 1} trong {quizData.totalQuestions}
             </span>
-            <span className="text-sm text-gray-500">{answeredQuestions} answered</span>
+            <span className="text-sm text-gray-500">{answeredQuestions} đã trả lời</span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>
@@ -238,7 +238,7 @@ export default function QuizTaking() {
             className="flex items-center justify-center h-12 px-6 border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent"
           >
             <ChevronLeft className="w-4 h-4 mr-2" />
-            Previous
+            Quay lại
           </Button>
 
           <div className="flex gap-4">
@@ -248,7 +248,7 @@ export default function QuizTaking() {
                 className="flex items-center justify-center h-12 px-8 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium"
               >
                 <Check className="w-4 h-4 mr-2" />
-                Submit Quiz
+                Nộp bài quiz
               </Button>
             ) : (
               <Button
@@ -256,7 +256,7 @@ export default function QuizTaking() {
                 disabled={currentQuestion === quizData.questions.length - 1}
                 className="flex items-center justify-center h-12 px-6 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white font-medium"
               >
-                Next
+                Tiếp theo
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>
             )}

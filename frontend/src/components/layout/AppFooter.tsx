@@ -19,7 +19,7 @@ export function AppFooter() {
           <div className="w-6 h-6 bg-gradient-to-br from-orange-400 to-pink-400 rounded-md flex items-center justify-center">
             <BookOpen className="w-4 h-4 text-white" />
           </div>
-          <span>&copy; {currentYear} QuizMaster. All rights reserved.</span>
+          <span>&copy; {currentYear} Quizz. All rights reserved.</span>
         </div>
 
         {/* Right: Navigation Links */}

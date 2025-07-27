@@ -28,7 +28,7 @@ export default function UpgradePremiumPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-lg font-semibold text-gray-900">QuizMaster</h1>
+              <h1 className="text-lg font-semibold text-gray-900">Quizz</h1>
             </div>
           </div>
         </div>
@@ -42,27 +42,27 @@ export default function UpgradePremiumPage() {
               <Crown className="w-10 h-10 text-white" />
             </div>
             <CardTitle className="text-4xl font-extrabold text-gray-900 mb-3">
-              Unlock Your Full Learning Potential
+              Mở khóa toàn bộ tiềm năng học tập của bạn
             </CardTitle>
             <CardDescription className="text-xl text-gray-700 max-w-2xl mx-auto">
-              Go Premium with QuizMaster to access exclusive features, detailed insights, and an ad-free experience.
+              Nâng cấp lên Premium với Quizz để truy cập các tính năng độc quyền, phân tích chi tiết và trải nghiệm không quảng cáo.
             </CardDescription>
           </CardHeader>
           <CardContent className="pb-8">
             <Button className="h-14 px-10 text-lg font-semibold bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1">
               <Zap className="w-5 h-5 mr-3" />
-              Upgrade to Premium Now
+              Nâng cấp lên Premium ngay
             </Button>
-            <p className="text-sm text-gray-500 mt-4">Starting at just $9.99/month • Cancel anytime</p>
+            <p className="text-sm text-gray-500 mt-4">Bắt đầu chỉ từ $9.99/tháng • Hủy bất cứ lúc nào</p>
           </CardContent>
         </Card>
 
         {/* Premium Benefits Section */}
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold text-gray-900">Why Go Premium?</CardTitle>
+            <CardTitle className="text-3xl font-bold text-gray-900">Tại sao nên nâng cấp lên Premium?</CardTitle>
             <CardDescription className="text-gray-600">
-              Elevate your quiz experience with these powerful features.
+              Nâng tầm trải nghiệm làm quiz của bạn với những tính năng mạnh mẽ sau:
             </CardDescription>
           </CardHeader>
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
@@ -71,9 +71,9 @@ export default function UpgradePremiumPage() {
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg text-gray-900">Detailed Explanations</h3>
+                <h3 className="font-semibold text-lg text-gray-900">Giải thích chi tiết</h3>
                 <p className="text-gray-600 text-sm">
-                  Understand every answer with in-depth explanations for all questions.
+                  Hiểu rõ mọi đáp án với phần giải thích sâu cho từng câu hỏi.
                 </p>
               </div>
             </div>
@@ -82,9 +82,9 @@ export default function UpgradePremiumPage() {
                 <BarChart className="w-5 h-5 text-blue-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg text-gray-900">Advanced Analytics</h3>
+                <h3 className="font-semibold text-lg text-gray-900">Phân tích nâng cao</h3>
                 <p className="text-gray-600 text-sm">
-                  Track your progress, identify weak areas, and see performance trends.
+                  Theo dõi tiến trình, xác định điểm yếu và xem xu hướng kết quả của bạn.
                 </p>
               </div>
             </div>
@@ -93,9 +93,9 @@ export default function UpgradePremiumPage() {
                 <LockOpen className="w-5 h-5 text-purple-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg text-gray-900">Unlimited Access</h3>
+                <h3 className="font-semibold text-lg text-gray-900">Truy cập không giới hạn</h3>
                 <p className="text-gray-600 text-sm">
-                  Enjoy unlimited attempts on all quizzes, including premium content.
+                  Làm bài kiểm tra không giới hạn số lần, bao gồm cả nội dung Premium.
                 </p>
               </div>
             </div>
@@ -104,9 +104,9 @@ export default function UpgradePremiumPage() {
                 <MessageSquare className="w-5 h-5 text-yellow-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg text-gray-900">Priority Support</h3>
+                <h3 className="font-semibold text-lg text-gray-900">Hỗ trợ ưu tiên</h3>
                 <p className="text-gray-600 text-sm">
-                  Get faster responses and dedicated assistance from our support team.
+                  Nhận phản hồi nhanh hơn và được hỗ trợ tận tình từ đội ngũ của chúng tôi.
                 </p>
               </div>
             </div>
@@ -115,9 +115,9 @@ export default function UpgradePremiumPage() {
                 <ShieldCheck className="w-5 h-5 text-red-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg text-gray-900">Ad-Free Experience</h3>
+                <h3 className="font-semibold text-lg text-gray-900">Trải nghiệm không quảng cáo</h3>
                 <p className="text-gray-600 text-sm">
-                  Focus purely on learning without any interruptions from advertisements.
+                  Tập trung hoàn toàn vào việc học mà không bị gián đoạn bởi quảng cáo.
                 </p>
               </div>
             </div>
@@ -126,9 +126,9 @@ export default function UpgradePremiumPage() {
                 <Award className="w-5 h-5 text-orange-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg text-gray-900">Exclusive Content</h3>
+                <h3 className="font-semibold text-lg text-gray-900">Nội dung độc quyền</h3>
                 <p className="text-gray-600 text-sm">
-                  Access special quizzes and learning modules available only to Premium members.
+                  Truy cập các bài kiểm tra đặc biệt và học liệu chỉ dành cho thành viên Premium.
                 </p>
               </div>
             </div>
@@ -138,16 +138,16 @@ export default function UpgradePremiumPage() {
         {/* Feature Comparison Table */}
         <Card className="border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardHeader className="text-center">
-            <CardTitle className="text-3xl font-bold text-gray-900">Compare Plans</CardTitle>
-            <CardDescription className="text-gray-600">See how Premium enhances your learning journey.</CardDescription>
+            <CardTitle className="text-3xl font-bold text-gray-900">So sánh các gói</CardTitle>
+            <CardDescription className="text-gray-600">Xem cách Premium nâng cao hành trình học tập của bạn.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-gray-50">
-                    <TableHead className="w-[200px] text-gray-700 font-semibold">Feature</TableHead>
-                    <TableHead className="text-center text-gray-700 font-semibold">Free</TableHead>
+                    <TableHead className="w-[200px] text-gray-700 font-semibold">Tính năng</TableHead>
+                    <TableHead className="text-center text-gray-700 font-semibold">Miễn phí</TableHead>
                     <TableHead className="text-center text-gray-700 font-semibold">
                       <Badge className="bg-gradient-to-r from-orange-400 to-pink-400 text-white text-sm px-3 py-1">
                         Premium
@@ -157,12 +157,12 @@ export default function UpgradePremiumPage() {
                 </TableHeader>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-medium text-gray-800">Quiz Attempts</TableCell>
-                    <TableCell className="text-center text-gray-600">Limited</TableCell>
-                    <TableCell className="text-center text-green-600 font-medium">Unlimited</TableCell>
+                    <TableCell className="font-medium text-gray-800">Số lần làm bài kiểm tra</TableCell>
+                    <TableCell className="text-center text-gray-600">Giới hạn</TableCell>
+                    <TableCell className="text-center text-green-600 font-medium">Không giới hạn</TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium text-gray-800">Detailed Explanations</TableCell>
+                    <TableCell className="font-medium text-gray-800">Giải thích chi tiết</TableCell>
                     <TableCell className="text-center text-red-600">
                       <XCircle className="w-5 h-5 mx-auto" />
                     </TableCell>
@@ -171,7 +171,7 @@ export default function UpgradePremiumPage() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium text-gray-800">Advanced Analytics</TableCell>
+                    <TableCell className="font-medium text-gray-800">Phân tích nâng cao</TableCell>
                     <TableCell className="text-center text-red-600">
                       <XCircle className="w-5 h-5 mx-auto" />
                     </TableCell>
@@ -180,7 +180,7 @@ export default function UpgradePremiumPage() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium text-gray-800">Ad-Free Experience</TableCell>
+                    <TableCell className="font-medium text-gray-800">Trải nghiệm không quảng cáo</TableCell>
                     <TableCell className="text-center text-red-600">
                       <XCircle className="w-5 h-5 mx-auto" />
                     </TableCell>
@@ -189,7 +189,7 @@ export default function UpgradePremiumPage() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium text-gray-800">Exclusive Quizzes</TableCell>
+                    <TableCell className="font-medium text-gray-800">Bài kiểm tra độc quyền</TableCell>
                     <TableCell className="text-center text-red-600">
                       <XCircle className="w-5 h-5 mx-auto" />
                     </TableCell>
@@ -198,7 +198,7 @@ export default function UpgradePremiumPage() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium text-gray-800">Priority Support</TableCell>
+                    <TableCell className="font-medium text-gray-800">Hỗ trợ ưu tiên</TableCell>
                     <TableCell className="text-center text-red-600">
                       <XCircle className="w-5 h-5 mx-auto" />
                     </TableCell>
@@ -207,7 +207,7 @@ export default function UpgradePremiumPage() {
                     </TableCell>
                   </TableRow>
                   <TableRow>
-                    <TableCell className="font-medium text-gray-800">Quiz History</TableCell>
+                    <TableCell className="font-medium text-gray-800">Lịch sử làm bài</TableCell>
                     <TableCell className="text-center text-green-600">
                       <CheckCircle className="w-5 h-5 mx-auto" />
                     </TableCell>
@@ -224,15 +224,15 @@ export default function UpgradePremiumPage() {
         {/* Final Call to Action */}
         <Card className="text-center border-0 shadow-lg bg-white/80 backdrop-blur-sm">
           <CardContent className="py-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">Ready to Master Your Knowledge?</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Sẵn sàng chinh phục kiến thức của bạn?</h2>
             <p className="text-lg text-gray-700 mb-6">
-              Join thousands of learners who are already accelerating their progress with QuizMaster Premium.
+              Hãy gia nhập cùng hàng ngàn người học đang tăng tốc tiến trình với Quizz Premium.
             </p>
             <Button className="h-14 px-10 text-lg font-semibold bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1">
               <Crown className="w-5 h-5 mr-3" />
-              Upgrade to Premium Today!
+              Nâng cấp lên Premium ngay hôm nay!
             </Button>
-            <p className="text-sm text-gray-500 mt-4">Secure payment via Stripe • 7-day money-back guarantee</p>
+            <p className="text-sm text-gray-500 mt-4">Thanh toán an toàn qua XXX • Đảm bảo hoàn tiền trong 7 ngày</p>
           </CardContent>
         </Card>
       </main>

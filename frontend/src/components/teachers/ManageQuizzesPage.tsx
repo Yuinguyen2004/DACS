@@ -96,7 +96,7 @@ export default function ManageQuizzesPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
                 <BookOpen className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-lg font-semibold text-gray-900">Manage Quizzes</h1>
+              <h1 className="text-lg font-semibold text-gray-900">Quản lý bài kiểm tra</h1>
             </div>
           </div>
         </div>
@@ -108,7 +108,7 @@ export default function ManageQuizzesPage() {
           <div className="relative flex-1 w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <Input
-              placeholder="Search quizzes..."
+              placeholder="Tìm kiếm bài kiểm tra..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 h-10 border-gray-200 focus:border-orange-400 focus:ring-orange-400 w-full"
@@ -121,7 +121,7 @@ export default function ManageQuizzesPage() {
                 <SelectValue placeholder="Filter by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Quizzes</SelectItem>
+                <SelectItem value="all">Tất cả bài kiểm tra</SelectItem>
                 <SelectItem value="premium">Premium Quizzes</SelectItem>
                 <SelectItem value="free">Free Quizzes</SelectItem>
               </SelectContent>
@@ -131,7 +131,7 @@ export default function ManageQuizzesPage() {
               className="h-10 px-4 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white font-medium flex-shrink-0"
             >
               <PlusCircle className="w-4 h-4 mr-2" />
-              Create New Quiz
+              Tạo bài kiểm tra mới
             </Button>
           </div>
         </div>
@@ -139,8 +139,8 @@ export default function ManageQuizzesPage() {
         {/* Quizzes List/Table */}
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-gray-900">Your Quizzes</CardTitle>
-            <CardDescription className="text-gray-600">View, edit, or delete your created quizzes.</CardDescription>
+            <CardTitle className="text-2xl font-bold text-gray-900">Bài kiểm tra của bạn</CardTitle>
+            <CardDescription className="text-gray-600">Xem, chỉnh sửa hoặc xóa các bài kiểm tra đã tạo.</CardDescription>
           </CardHeader>
           <CardContent className="p-0">
             {filteredQuizzes.length > 0 ? (
@@ -148,11 +148,11 @@ export default function ManageQuizzesPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-gray-50">
-                      <TableHead className="font-semibold text-gray-900">Quiz Name</TableHead>
-                      <TableHead className="font-semibold text-gray-900">Questions</TableHead>
-                      <TableHead className="font-semibold text-gray-900">Status</TableHead>
-                      <TableHead className="font-semibold text-gray-900">Last Updated</TableHead>
-                      <TableHead className="font-semibold text-gray-900 text-right">Actions</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Tên bài kiểm tra</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Số câu hỏi</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Trạng thái</TableHead>
+                      <TableHead className="font-semibold text-gray-900">Cập nhật lần cuối</TableHead>
+                      <TableHead className="font-semibold text-gray-900 text-right">Thao tác</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -181,7 +181,7 @@ export default function ManageQuizzesPage() {
                             className="h-8 px-3 text-blue-600 border-blue-200 hover:bg-blue-50 bg-transparent"
                           >
                             <Edit className="w-3 h-3 mr-1" />
-                            Edit
+                            Sửa
                           </Button>
                           <Button
                             variant="outline"
@@ -190,7 +190,7 @@ export default function ManageQuizzesPage() {
                             className="h-8 px-3 text-red-500 border-red-200 hover:bg-red-50 bg-transparent"
                           >
                             <Trash2 className="w-3 h-3 mr-1" />
-                            Delete
+                            Xóa
                           </Button>
                         </TableCell>
                       </TableRow>
