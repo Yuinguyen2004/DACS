@@ -10,8 +10,11 @@ export class Quiz extends Document {
   @Prop()
   description: string;
 
+  @Prop({ type: Number, required: false })
+  time_limit?: number; // đơn vị: phút hoặc giây (nên chọn 1 loại)
+
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  user_id: string; // người tạo quiz
+  user_id: Types.ObjectId; // người tạo quiz
 
   @Prop({ default: false })
   is_premium: boolean;

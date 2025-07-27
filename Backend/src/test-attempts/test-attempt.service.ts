@@ -10,6 +10,8 @@ import { Quiz } from '../quizzes/quiz.schema';
 import { Question } from '../questions/question.schema';
 import { Answer } from '../answers/answer.schema';
 import { SubmitTestDto } from './dto/submit-test.dto';
+import { time } from 'console';
+import { StartTestResponseDto } from './dto/start-test-reponse.dto';
 
 @Injectable()
 export class TestAttemptService {
@@ -21,21 +23,26 @@ export class TestAttemptService {
   ) {}
 
   /**
- * Bat dau lam bai test
- * Logic: 
- * 1. Kiem tra quiz co ton tai khong
- * 2. Lay tat ca cau hoi cua quiz
- * 3. Lay tat ca dap an cho moi cau hoi (KHONG bao gom thong tin dung/sai)
- * 4. Tra ve du lieu can thiet de hien thi bai test
- */
-async startTest(quiz_id: string, _userId: string) {
-    // Xac nhan quiz co ton tai
+   * Bat dau lam bai test
+   * Logic:
+   * 1. Kiem tra quiz co ton tai khong
+   * 2. Lay tat ca cau hoi cua quiz
+   * 3. Lay tat ca dap an cho moi cau hoi (KHONG bao gom thong tin dung/sai)
+   * 4. Tra ve du lieu can thiet de hien thi bai test
+   */
+  async startTest(
+    quiz_id: string,
+    userId: string,
+  ): Promise<StartTestResponseDto> {
+    console.log('=== START TEST ===');
+    console.log('Creating attempt for user:', userId);
+    // 1. Kiem tra quiz co ton tai khong
     const quiz = await this.quizModel.findById(quiz_id);
     if (!quiz) {
       throw new NotFoundException('Quiz not found');
     }
 
-    // Get all questions for this quiz with their answers
+    // 2. Lay tat ca cau hoi cua quiz
     const questions = await this.questionModel
       .find({ quiz_id: quiz._id })
       .sort({ question_number: 1 })
@@ -45,12 +52,12 @@ async startTest(quiz_id: string, _userId: string) {
       throw new BadRequestException('Quiz has no questions');
     }
 
-    // Get answers for all questions
+    // 3. Lay tat ca dap an cho moi cau hoi (KHONG bao gom thong tin dung/sai)
     const questionsWithAnswers = await Promise.all(
       questions.map(async (question) => {
         const answers = await this.answerModel
           .find({ question_id: question._id })
-          .select('_id content') // Don't include is_correct in response
+          .select('_id content') // Khong lay thong tin is_correct
           .lean();
 
         return {
@@ -63,48 +70,98 @@ async startTest(quiz_id: string, _userId: string) {
       }),
     );
 
+    const testAttempt = new this.testAttemptModel({
+      quiz_id: new Types.ObjectId(quiz_id),
+      user_id: new Types.ObjectId(userId),
+      started_at: new Date(),
+      status: 'in_progress',
+      total_questions: questions.length,
+    });
+
+    await testAttempt.save();
+
+    console.log('Created attempt:', {
+      _id: (testAttempt._id as Types.ObjectId).toString(),
+      user_id: (testAttempt.user_id as Types.ObjectId).toString(),
+      status: testAttempt.status,
+    });
+
+    // 4. Tra ve du lieu can thiet de hien thi bai test
     return {
+      attempt_id: (testAttempt._id as Types.ObjectId).toString(),
       quiz: {
-        _id: quiz._id,
+        _id: (quiz._id as Types.ObjectId).toString(),
         title: quiz.title,
         description: quiz.description,
+        time_limit: quiz.time_limit || null,
       },
       questions: questionsWithAnswers,
       total_questions: questions.length,
-      started_at: new Date().toISOString(),
+      started_at: testAttempt.started_at.toISOString(),
     };
   }
 
   /**
- * Nop bai test va tinh diem
- * Logic phuc tap nhat trong he thong:
- * 1. Kiem tra quiz co ton tai
- * 2. Lay tat ca cau hoi cua quiz
- * 3. Kiem tra tung cau tra loi:
- *    - Cau hoi co thuoc quiz khong
- *    - Dap an co ton tai khong  
- *    - Dap an co thuoc cau hoi khong
- * 4. Tinh diem dua tren so cau dung
- * 5. Tinh thoi gian lam bai
- * 6. Luu ket qua vao database
- */
-async submitTest(submitData: SubmitTestDto, userId: string) {
-    // Xac thuc quiz co ton tai
-    const quiz = await this.quizModel.findById(submitData.quiz_id);
+   * Nop bai test va tinh diem
+   * Logic phuc tap nhat trong he thong:
+   * 1. Tim attempt dang in_progress roi moi lay quiz info
+   * 2. Lay tat ca cau hoi cua quiz
+   * 3. Kiem tra tung cau tra loi:
+   *    - Cau hoi co thuoc quiz khong
+   *    - Dap an co ton tai khong
+   *    - Dap an co thuoc cau hoi khong
+   * 4. Tinh diem dua tren so cau dung
+   * 5. Tinh thoi gian lam bai
+   * 6. Luu ket qua vao database
+   */
+  async submitTest(submitData: SubmitTestDto, userId: string) {
+    // 1. Tìm attempt dang in_progress
+    const attempt = await this.testAttemptModel.findOne({
+      _id: new Types.ObjectId(submitData.attempt_id),
+      user_id: new Types.ObjectId(userId),
+      status: 'in_progress',
+    });
+
+    if (!attempt) {
+      throw new NotFoundException(
+        'Test attempt not found or already submitted',
+      );
+    }
+
+    // Lấy quiz info
+    const quiz = await this.quizModel.findById(attempt.quiz_id);
     if (!quiz) {
       throw new NotFoundException('Quiz not found');
     }
 
-    // Get all questions for this quiz
+    // Them: Tinh thoi gian tu server
+    const completedAt = new Date();
+    const completionTime = Math.floor(
+      (completedAt.getTime() - attempt.started_at.getTime()) / 1000,
+    );
+
+    // Thêm: Kiem tra thoi gian time_limit
+    if (quiz.time_limit) {
+      const timeLimitInSeconds = quiz.time_limit * 60;
+      const GRACE_PERIOD = 30; // 30 seconds grace period
+
+      if (completionTime > timeLimitInSeconds + GRACE_PERIOD) {
+        throw new BadRequestException(
+          `Test submission exceeded time limit. Time limit: ${quiz.time_limit} minutes, Time taken: ${Math.ceil(completionTime / 60)} minutes`,
+        );
+      }
+    }
+
+    // 2. Lay tat ca cau hoi cua quiz
     const questions = await this.questionModel.find({
-      quiz_id: new Types.ObjectId(submitData.quiz_id),
+      quiz_id: new Types.ObjectId(attempt.quiz_id),
     });
 
     if (questions.length === 0) {
       throw new BadRequestException('Quiz has no questions');
     }
 
-    // Validate all answers and calculate score
+    // 3. Kiem tra tung cau tra loi
     let correctAnswers = 0;
     const processedAnswers: Array<{
       question_id: Types.ObjectId;
@@ -112,9 +169,9 @@ async submitTest(submitData: SubmitTestDto, userId: string) {
       is_correct: boolean;
     }> = [];
 
-    // Kiem tra tung cau tra loi mot cach chi tiet
+    // Duyet qua tung cau tra loi
     for (const answerSubmission of submitData.answers) {
-      // Verify question belongs to the quiz
+      // Kiem tra cau hoi co ton tai trong quiz
       const question = questions.find(
         (q) =>
           (q._id as Types.ObjectId).toString() === answerSubmission.question_id,
@@ -125,7 +182,7 @@ async submitTest(submitData: SubmitTestDto, userId: string) {
         );
       }
 
-      // Get the selected answer
+      // Lay dap an duoc chon
       const selectedAnswer = await this.answerModel.findById(
         answerSubmission.selected_answer_id,
       );
@@ -135,7 +192,7 @@ async submitTest(submitData: SubmitTestDto, userId: string) {
         );
       }
 
-      // Verify answer belongs to the question
+      // Kiem tra dap an co thuoc cau hoi khong
       if (
         selectedAnswer.question_id.toString() !== answerSubmission.question_id
       ) {
@@ -159,34 +216,22 @@ async submitTest(submitData: SubmitTestDto, userId: string) {
       });
     }
 
-    // Tinh thoi gian va diem so
-    const startedAt = new Date(submitData.started_at);
-    const completedAt = new Date(submitData.completed_at);
-    const completionTime = Math.floor(
-      (completedAt.getTime() - startedAt.getTime()) / 1000,
-    );
     const score = Math.round((correctAnswers / questions.length) * 100);
 
-    // Luu ket qua vao database
-    const testAttempt = new this.testAttemptModel({
-      quiz_id: new Types.ObjectId(submitData.quiz_id),
-      user_id: new Types.ObjectId(userId),
-      score,
-      total_questions: questions.length,
-      correct_answers: correctAnswers,
-      incorrect_answers: questions.length - correctAnswers,
-      completion_time: completionTime,
-      started_at: startedAt,
-      completed_at: completedAt,
-      answers: processedAnswers,
-      status: 'completed',
-    });
+    // Update attempt với kết quả
+    attempt.score = score;
+    attempt.correct_answers = correctAnswers;
+    attempt.incorrect_answers = questions.length - correctAnswers;
+    attempt.completion_time = completionTime;
+    attempt.completed_at = completedAt;
+    attempt.answers = processedAnswers;
+    attempt.status = 'completed';
 
-    await testAttempt.save();
+    await attempt.save();
 
     // Tra ve ket qua cho nguoi dung
     return {
-      attempt_id: testAttempt._id,
+      attempt_id: attempt._id,
       score,
       total_questions: questions.length,
       correct_answers: correctAnswers,
@@ -197,11 +242,11 @@ async submitTest(submitData: SubmitTestDto, userId: string) {
   }
 
   /**
- * Lay lich su lam bai cua nguoi dung
- * Co the xem tat ca hoac chi xem lich su cua 1 quiz cu the
- * Sap xep theo thoi gian moi nhat truoc
- */
-async getTestHistory(userId: string, quizId?: string) {
+   * Lay lich su lam bai cua nguoi dung
+   * Co the xem tat ca hoac chi xem lich su cua 1 quiz cu the
+   * Sap xep theo thoi gian moi nhat truoc
+   */
+  async getTestHistory(userId: string, quizId?: string) {
     const filter: Record<string, any> = { user_id: new Types.ObjectId(userId) };
     if (quizId) {
       filter.quiz_id = new Types.ObjectId(quizId);
@@ -227,11 +272,11 @@ async getTestHistory(userId: string, quizId?: string) {
   }
 
   /**
- * Xem chi tiet ket qua 1 lan lam bai cu the
- * Bao gom tat ca cau tra loi, dap an dung, dap an da chon
- * Dung de review lai bai lam sau khi hoan thanh
- */
-async getTestAttemptDetails(attemptId: string, userId: string) {
+   * Xem chi tiet ket qua 1 lan lam bai cu the
+   * Bao gom tat ca cau tra loi, dap an dung, dap an da chon
+   * Dung de review lai bai lam sau khi hoan thanh
+   */
+  async getTestAttemptDetails(attemptId: string, userId: string) {
     const attempt = await this.testAttemptModel
       .findOne({ _id: attemptId, user_id: new Types.ObjectId(userId) })
       .populate('quiz_id', 'title description')

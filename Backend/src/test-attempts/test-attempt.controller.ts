@@ -31,12 +31,10 @@ export class TestAttemptController {
    * API bat dau lam bai test
    * Tra ve cau hoi va dap an (khong co thong tin dung/sai)
    */
-  @Post('start')
-  async startTest(@Body() startTestDto: StartTestDto, @Request() req: any) {
-    return this.testAttemptService.startTest(
-      startTestDto.quiz_id,
-      req.user.userId as string,
-    );
+  @Post('start/:quiz_id') // POST request
+  async startTest(@Param('quiz_id') quizId: string, @Request() req: any) {
+    const userId = req.user.userId; // hoặc req.user._id tùy cách bạn setup
+    return this.testAttemptService.startTest(quizId, userId);
   }
 
   /**
@@ -45,7 +43,8 @@ export class TestAttemptController {
    */
   @Post('submit')
   async submitTest(@Body() submitTestDto: SubmitTestDto, @Request() req: any) {
-    return this.testAttemptService.submitTest(submitTestDto, req.user.userId as string);
+    const userId = req.user.userId;
+    return this.testAttemptService.submitTest(submitTestDto, userId);
   }
 
   /**
@@ -54,7 +53,10 @@ export class TestAttemptController {
    */
   @Get('history')
   async getTestHistory(@Query('quiz_id') quizId: string, @Request() req: any) {
-    return this.testAttemptService.getTestHistory(req.user.userId as string, quizId);
+    return this.testAttemptService.getTestHistory(
+      req.user.userId as string,
+      quizId,
+    );
   }
 
   /**
@@ -63,6 +65,9 @@ export class TestAttemptController {
    */
   @Get(':id')
   async getTestAttemptDetails(@Param('id') id: string, @Request() req: any) {
-    return this.testAttemptService.getTestAttemptDetails(id, req.user.userId as string);
+    return this.testAttemptService.getTestAttemptDetails(
+      id,
+      req.user.userId as string,
+    );
   }
 }

@@ -1,4 +1,4 @@
-import { IsString, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsNumber } from 'class-validator';
 
 export class CreateQuizDto {
   @IsString()
@@ -8,6 +8,11 @@ export class CreateQuizDto {
   @IsString()
   description: string;
 
+  @IsOptional()
+  @IsNumber()
+  time_limit?: number;
+
+  @IsOptional()
   @IsBoolean()
-  is_Premium: boolean;
+  is_premium: boolean;
 }
