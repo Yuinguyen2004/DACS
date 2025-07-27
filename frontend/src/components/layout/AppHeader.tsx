@@ -24,6 +24,7 @@ interface AppHeaderProps {
 export function AppHeader({ isLoggedIn = true, userName = "John Doe", userAvatarUrl }: AppHeaderProps) {
   const navigationLinks = [
     { name: "Trang chủ", to: "/homepage" },
+    { name: "My Dashboard", to: "/dashboard" },
     { name: "Bài quiz của tôi", to: "/manage" },
     { name: "Lịch sử", to: "/history" },
     { name: "Nâng cấp", to: "/upgrade" },

@@ -8,6 +8,7 @@ import QuizHistoryPage from './components/quizzes/QuizHistoryPage'
 import CreateQuizPage from './components/teachers/CreateQuizPage'
 import ManageQuizzesPage from './components/teachers/ManageQuizzesPage'
 import AdminDashboardPage from './components/teachers/admin/AdminDashboardPage'
+import UserDashboardPage from './components/quizzes/UserDashboard'
 import QuizResultPage from './components/quizzes/QuizResultPage' // ví dụ thêm trang kết quả
 import { Routes, Route } from 'react-router-dom'
 
@@ -26,6 +27,7 @@ function App() {
           <Route path="/create" element={<CreateQuizPage />} />
           <Route path="/manage" element={<ManageQuizzesPage />} />
           <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/dashboard" element={<UserDashboardPage />} />
         </Routes>
       </main>
       <AppFooter />
