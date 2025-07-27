@@ -7,6 +7,12 @@ import { Quiz, QuizSchema } from '../quizzes/quiz.schema';
 import { Question, QuestionSchema } from '../questions/question.schema';
 import { Answer, AnswerSchema } from '../answers/answer.schema';
 
+/**
+ * Module chinh cua test-attempts
+ * Ket noi tat ca thanh phan: schema, controller, service
+ * Import cac schema can thiet: TestAttempt, Quiz, Question, Answer
+ * Export service de cac module khac co the su dung
+ */
 @Module({
   imports: [
     MongooseModule.forFeature([

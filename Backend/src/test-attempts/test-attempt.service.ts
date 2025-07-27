@@ -20,7 +20,15 @@ export class TestAttemptService {
     @InjectModel(Answer.name) private answerModel: Model<Answer>,
   ) {}
 
-  async startTest(quiz_id: string, _userId: string) {
+  /**
+ * Bat dau lam bai test
+ * Logic: 
+ * 1. Kiem tra quiz co ton tai khong
+ * 2. Lay tat ca cau hoi cua quiz
+ * 3. Lay tat ca dap an cho moi cau hoi (KHONG bao gom thong tin dung/sai)
+ * 4. Tra ve du lieu can thiet de hien thi bai test
+ */
+async startTest(quiz_id: string, _userId: string) {
     // Xac nhan quiz co ton tai
     const quiz = await this.quizModel.findById(quiz_id);
     if (!quiz) {
@@ -67,7 +75,20 @@ export class TestAttemptService {
     };
   }
 
-  async submitTest(submitData: SubmitTestDto, userId: string) {
+  /**
+ * Nop bai test va tinh diem
+ * Logic phuc tap nhat trong he thong:
+ * 1. Kiem tra quiz co ton tai
+ * 2. Lay tat ca cau hoi cua quiz
+ * 3. Kiem tra tung cau tra loi:
+ *    - Cau hoi co thuoc quiz khong
+ *    - Dap an co ton tai khong  
+ *    - Dap an co thuoc cau hoi khong
+ * 4. Tinh diem dua tren so cau dung
+ * 5. Tinh thoi gian lam bai
+ * 6. Luu ket qua vao database
+ */
+async submitTest(submitData: SubmitTestDto, userId: string) {
     // Xac thuc quiz co ton tai
     const quiz = await this.quizModel.findById(submitData.quiz_id);
     if (!quiz) {
@@ -91,6 +112,7 @@ export class TestAttemptService {
       is_correct: boolean;
     }> = [];
 
+    // Kiem tra tung cau tra loi mot cach chi tiet
     for (const answerSubmission of submitData.answers) {
       // Verify question belongs to the quiz
       const question = questions.find(
@@ -122,6 +144,7 @@ export class TestAttemptService {
         );
       }
 
+      // Kiem tra dap an co dung khong va tang so cau dung
       const isCorrect = selectedAnswer.is_correct;
       if (isCorrect) {
         correctAnswers++;
@@ -136,7 +159,7 @@ export class TestAttemptService {
       });
     }
 
-    // Calculate completion time and score
+    // Tinh thoi gian va diem so
     const startedAt = new Date(submitData.started_at);
     const completedAt = new Date(submitData.completed_at);
     const completionTime = Math.floor(
@@ -144,7 +167,7 @@ export class TestAttemptService {
     );
     const score = Math.round((correctAnswers / questions.length) * 100);
 
-    // Save test attempt
+    // Luu ket qua vao database
     const testAttempt = new this.testAttemptModel({
       quiz_id: new Types.ObjectId(submitData.quiz_id),
       user_id: new Types.ObjectId(userId),
@@ -161,6 +184,7 @@ export class TestAttemptService {
 
     await testAttempt.save();
 
+    // Tra ve ket qua cho nguoi dung
     return {
       attempt_id: testAttempt._id,
       score,
@@ -172,7 +196,12 @@ export class TestAttemptService {
     };
   }
 
-  async getTestHistory(userId: string, quizId?: string) {
+  /**
+ * Lay lich su lam bai cua nguoi dung
+ * Co the xem tat ca hoac chi xem lich su cua 1 quiz cu the
+ * Sap xep theo thoi gian moi nhat truoc
+ */
+async getTestHistory(userId: string, quizId?: string) {
     const filter: Record<string, any> = { user_id: new Types.ObjectId(userId) };
     if (quizId) {
       filter.quiz_id = new Types.ObjectId(quizId);
@@ -197,7 +226,12 @@ export class TestAttemptService {
     }));
   }
 
-  async getTestAttemptDetails(attemptId: string, userId: string) {
+  /**
+ * Xem chi tiet ket qua 1 lan lam bai cu the
+ * Bao gom tat ca cau tra loi, dap an dung, dap an da chon
+ * Dung de review lai bai lam sau khi hoan thanh
+ */
+async getTestAttemptDetails(attemptId: string, userId: string) {
     const attempt = await this.testAttemptModel
       .findOne({ _id: attemptId, user_id: new Types.ObjectId(userId) })
       .populate('quiz_id', 'title description')
@@ -209,7 +243,7 @@ export class TestAttemptService {
       throw new NotFoundException('Test attempt not found');
     }
 
-    // Get all correct answers for comparison
+    // Lay tat ca dap an dung de so sanh
     const questionIds = attempt.answers.map((a) => a.question_id._id);
     const correctAnswers = await this.answerModel
       .find({
@@ -218,7 +252,7 @@ export class TestAttemptService {
       })
       .lean();
 
-    // Create a map of correct answers
+    // Tao map de tim dap an dung nhanh hon
     const correctAnswerMap = correctAnswers.reduce(
       (map, answer) => {
         map[answer.question_id.toString()] = answer;
