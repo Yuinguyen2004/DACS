@@ -106,7 +106,7 @@ export class TestAttemptService {
 
     console.log('Created attempt:', {
       _id: (testAttempt._id as Types.ObjectId).toString(),
-      user_id: (testAttempt.user_id as Types.ObjectId).toString(),
+      user_id: testAttempt.user_id.toString(),
       status: testAttempt.status,
     });
 
@@ -383,8 +383,8 @@ export class TestAttemptService {
       for (const attempt of inProgressAttempts) {
         const quiz = attempt.quiz_id as any;
 
-        // Skip if quiz doesn't have time limit
-        if (!quiz.time_limit) {
+        // Skip if quiz is null or doesn't have time limit
+        if (!quiz || !quiz.time_limit) {
           continue;
         }
 
@@ -445,7 +445,7 @@ export class TestAttemptService {
     }
 
     const quiz = attempt.quiz_id as any;
-    if (!quiz.time_limit) {
+    if (!quiz || !quiz.time_limit) {
       return false;
     }
 

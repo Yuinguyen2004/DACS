@@ -49,7 +49,7 @@ export class TestAttempt extends Document {
 
   @Prop({
     type: String,
-    enum: ['in_progress', 'completed', 'abandoned', 'late'],
+    enum: ['in_progress', 'completed', 'abandoned'],
     default: 'in_progress',
     required: true,
   })

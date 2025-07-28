@@ -11,10 +11,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { TestAttemptService } from './test-attempt.service';
-import { StartTestDto } from './dto/start-test.dto';
 import { SubmitTestDto } from './dto/submit-test.dto';
-import { User } from 'src/users/user.schema';
-import { TestAttempt } from './test-attempt.schema';
 
 /**
  * Controller xu ly cac API lien quan den viec lam bai test
@@ -70,7 +67,7 @@ export class TestAttemptController {
   async getTestAttemptDetails(@Param('id') id: string, @Request() req: any) {
     // Lay thong tin attempt truoc de kiem tra userId
     const attempt = await this.testAttemptService.getTestAttemptById(id);
-
+    // Kiem tra xem attempt co ton tai khong
     if (!attempt) {
       throw new NotFoundException('Test attempt not found');
     }
