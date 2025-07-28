@@ -177,7 +177,7 @@ export class TestAttemptService {
     if (quiz.time_limit) {
       const timeLimitInSeconds = quiz.time_limit * 60;
       const GRACE_PERIOD = 30; // 30 seconds grace period for network delays
-      
+
       if (completionTime > timeLimitInSeconds + GRACE_PERIOD) {
         // Too late - reject submission completely
         throw new BadRequestException(
@@ -371,16 +371,18 @@ export class TestAttemptService {
   async timeoutOverdueAttempts() {
     try {
       // Find all in_progress attempts
-      const inProgressAttempts = await this.testAttemptModel.find({
-        status: 'in_progress',
-      }).populate('quiz_id');
+      const inProgressAttempts = await this.testAttemptModel
+        .find({
+          status: 'in_progress',
+        })
+        .populate('quiz_id');
 
       const now = new Date();
       let timeoutCount = 0;
 
       for (const attempt of inProgressAttempts) {
         const quiz = attempt.quiz_id as any;
-        
+
         // Skip if quiz doesn't have time limit
         if (!quiz.time_limit) {
           continue;
@@ -394,23 +396,26 @@ export class TestAttemptService {
           attempt.status = 'abandoned';
           attempt.completed_at = now;
           attempt.completion_time = Math.floor(elapsedTime / 1000);
-          
+
           // Grade any completed questions
           if (attempt.answers && attempt.answers.length > 0) {
             const questions = await this.questionModel.find({
               quiz_id: attempt.quiz_id,
             });
-            
+
             let correctAnswers = 0;
             for (const answer of attempt.answers) {
               if (answer.is_correct) {
                 correctAnswers++;
               }
             }
-            
+
             attempt.correct_answers = correctAnswers;
             attempt.incorrect_answers = attempt.answers.length - correctAnswers;
-            attempt.score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
+            attempt.score =
+              questions.length > 0
+                ? Math.round((correctAnswers / questions.length) * 100)
+                : 0;
           }
 
           await attempt.save();
@@ -431,8 +436,10 @@ export class TestAttemptService {
    * Can be called manually or used in validation
    */
   async checkAndTimeoutAttempt(attemptId: string): Promise<boolean> {
-    const attempt = await this.testAttemptModel.findById(attemptId).populate('quiz_id');
-    
+    const attempt = await this.testAttemptModel
+      .findById(attemptId)
+      .populate('quiz_id');
+
     if (!attempt || attempt.status !== 'in_progress') {
       return false;
     }
@@ -450,23 +457,26 @@ export class TestAttemptService {
       attempt.status = 'abandoned';
       attempt.completed_at = now;
       attempt.completion_time = Math.floor(elapsedTime / 1000);
-      
+
       // Grade any completed questions
       if (attempt.answers && attempt.answers.length > 0) {
         const questions = await this.questionModel.find({
           quiz_id: attempt.quiz_id,
         });
-        
+
         let correctAnswers = 0;
         for (const answer of attempt.answers) {
           if (answer.is_correct) {
             correctAnswers++;
           }
         }
-        
+
         attempt.correct_answers = correctAnswers;
         attempt.incorrect_answers = attempt.answers.length - correctAnswers;
-        attempt.score = questions.length > 0 ? Math.round((correctAnswers / questions.length) * 100) : 0;
+        attempt.score =
+          questions.length > 0
+            ? Math.round((correctAnswers / questions.length) * 100)
+            : 0;
       }
 
       await attempt.save();
@@ -474,5 +484,13 @@ export class TestAttemptService {
     }
 
     return false;
+  }
+
+  async getTestAttemptById(id: string): Promise<TestAttempt | null> {
+    const attempt = await this.testAttemptModel.findById(id);
+    if (!attempt) {
+      throw new NotFoundException('Test attempt not found');
+    }
+    return attempt;
   }
 }

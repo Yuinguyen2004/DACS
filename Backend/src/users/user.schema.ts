@@ -16,7 +16,12 @@ export class User extends Document {
   @Prop({ required: true, default: 'user' })
   role: string;
 
-  @Prop({ type: Types.ObjectId, ref: 'Package', required: true })
+  @Prop({
+    type: Types.ObjectId,
+    ref: 'Package',
+    required: false,
+    default: 'guest',
+  })
   package_id: Types.ObjectId | Package;
 
   @Prop({ default: 'inactive' })

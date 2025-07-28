@@ -66,7 +66,9 @@ export class QuizService {
   }
 
   /**
-   * Helper method to get user with populated package info
+   * Giup lay thong tin package cua user
+   * @param userId - ID của user cần lấy thông tin package
+   * @returns Promise<User> - Thông tin user kèm thông tin package
    */
   async getUserWithPackage(userId: string) {
     return this.userModel.findById(userId).populate('package_id');
