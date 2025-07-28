@@ -1,4 +1,8 @@
-"use client" 
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
 import {
   Home,
   BookOpen,
@@ -6,19 +10,21 @@ import {
   LogOut,
   Trophy,
   BarChart2,
-  Play,
   Crown,
   ChevronDown,
   User,
   Settings,
   HelpCircle,
-  Lock,
+  Key,
+  Save,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Sidebar,
   SidebarContent,
@@ -44,12 +50,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Pie, PieChart, Cell, ResponsiveContainer } from "recharts"
+import { Link } from "react-router-dom"
 
 // Mock User Data
-const currentUser = {
+const initialUser = {
   name: "Alex Doe",
   email: "alex.doe@example.com",
   avatarUrl: "/placeholder.svg?height=40&width=40",
+  status: "Active",
   isPremium: true,
 }
 
@@ -89,7 +97,7 @@ const participatedQuizzes = [
   },
 ]
 
-// Mock Featured Quizzes Data
+// Mock Featured Quizzes Data (kept for "Recommended Quizzes" section)
 const featuredQuizzes = [
   {
     id: 101,
@@ -133,6 +141,28 @@ const progressData = [
 ]
 
 export default function UserDashboardPage() {
+  const [currentUser, setCurrentUser] = useState(initialUser)
+  const [profileForm, setProfileForm] = useState({
+    name: initialUser.name,
+    email: initialUser.email,
+  })
+
+  const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target
+    setProfileForm((prev) => ({ ...prev, [id]: value }))
+  }
+
+  const handleSaveProfile = () => {
+    setCurrentUser((prev) => ({ ...prev, ...profileForm }))
+    alert("Profile updated successfully!")
+    console.log("Saved Profile:", profileForm)
+  }
+
+  const handleChangePassword = () => {
+    alert("Redirecting to change password page/modal (not implemented in demo).")
+    // In a real app, this would open a modal or navigate to a password change page
+  }
+
   const getScoreColor = (score: number, total: number) => {
     const percentage = (score / total) * 100
     if (percentage >= 80) return "bg-green-100 text-green-800"
@@ -172,13 +202,12 @@ export default function UserDashboardPage() {
     <SidebarProvider defaultOpen={true}>
       <Sidebar collapsible="icon" variant="sidebar">
         <SidebarHeader>
-          {/* - */}
-          <a href="#" className="flex items-center space-x-2 p-2">
+          <Link to="/" className="flex items-center space-x-2 p-2">
             <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
               <BookOpen className="w-5 h-5 text-white" />
             </div>
             <span className="text-xl font-bold text-gray-900 group-data-[state=collapsed]:hidden">QuizMaster</span>
-          </a>
+          </Link>
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
@@ -187,38 +216,34 @@ export default function UserDashboardPage() {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild isActive>
-                    {/* - */}
-                    <a href="#">
+                    <Link to="/dashboard">
                       <Home />
-                      <span>Home</span>
-                    </a>
+                      <span>My Dashboard</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
-                    {/* - */}
-                    <a href="#">
+                    <Link to="/manage-quizzes">
                       <BookOpen />
                       <span>My Quizzes</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
-                    {/* - */}
-                    <a href="#">
+                    <Link to="/history">
                       <History />
                       <span>Quiz History</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
-                    {/* - */}
-                    <a href="#">
+                    <Link to="/upgrade">
                       <Crown />
                       <span>Upgrade Premium</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -287,193 +312,240 @@ export default function UserDashboardPage() {
             <p className="text-gray-600">Welcome back to your learning hub.</p>
           </div>
 
-          {/* Progress Chart & Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2 shadow-sm border-gray-200">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-gray-900">Your Learning Progress</CardTitle>
-                <CardDescription className="text-gray-600">Overview of your quiz completion status.</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col md:flex-row items-center justify-center gap-6 p-6">
-                <ChartContainer config={chartConfig} className="h-[200px] w-[200px] flex-shrink-0">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" hideLabel />} />
-                      <Pie
-                        data={progressData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius={60}
-                        outerRadius={80}
-                        strokeWidth={2}
-                        paddingAngle={5}
-                        cornerRadius={5}
-                      >
-                        {progressData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-                <div className="flex flex-col gap-3 text-sm text-gray-700">
-                  {progressData.map((entry, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
-                      <span>
-                        {entry.name}: <span className="font-semibold">{entry.value}%</span>
-                      </span>
-                    </div>
-                  ))}
-                  <Separator className="my-2" />
-                  <div className="flex items-center space-x-2">
-                    <Trophy className="w-4 h-4 text-yellow-600" />
-                    <span>
-                      Total Quizzes Completed: <span className="font-semibold">15</span>
-                    </span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <BarChart2 className="w-4 h-4 text-blue-600" />
-                    <span>
-                      Total Attempts: <span className="font-semibold">28</span>
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Quick Stats Cards */}
-            <div className="grid grid-cols-1 gap-6">
-              <Card className="shadow-sm border-gray-200">
-                <CardContent className="p-6 flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <Trophy className="w-6 h-6 text-orange-600" />
-                  </div>
-                  <div>
-                    <p className="text-3xl font-bold text-gray-900">85%</p>
-                    <p className="text-sm text-gray-600">Average Score</p>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="shadow-sm border-gray-200">
-                <CardContent className="p-6 flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
-                    <BookOpen className="w-6 h-6 text-pink-600" />
-                  </div>
-                  <div>
-                    <p className="text-3xl font-bold text-gray-900">5</p>
-                    <p className="text-sm text-gray-600">Quizzes This Week</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-
-          {/* Participated Quizzes List */}
+          {/* Overview & Activity Section */}
           <Card className="shadow-sm border-gray-200">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-900">Your Participated Quizzes</CardTitle>
-              <CardDescription className="text-gray-600">Review your past quiz attempts.</CardDescription>
+              <CardTitle className="text-xl font-semibold text-gray-900">Overview & Recent Activity</CardTitle>
+              <CardDescription className="text-gray-600">
+                Track your learning progress and recent quiz attempts.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Quiz Name
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Highest Score
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Attempts
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Last Attempt
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {participatedQuizzes.map((quiz) => (
-                      <tr key={quiz.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{quiz.name}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <Badge className={getScoreColor(quiz.highestScore, quiz.totalQuestions)}>
-                            {quiz.highestScore}/{quiz.totalQuestions}
-                          </Badge>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{quiz.attempts}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{quiz.lastAttemptDate}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-transparent"
+            <CardContent className="space-y-8">
+              {/* Progress Chart & Stats */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2 shadow-sm border-gray-200">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold text-gray-900">Your Learning Progress</CardTitle>
+                    <CardDescription className="text-gray-600">
+                      Overview of your quiz completion status.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col md:flex-row items-center justify-center gap-6 p-6">
+                    <ChartContainer config={chartConfig} className="h-[200px] w-[200px] flex-shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <ChartTooltip cursor={false} content={<ChartTooltipContent nameKey="name" hideLabel />} />
+                          <Pie
+                            data={progressData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={60}
+                            outerRadius={80}
+                            strokeWidth={2}
+                            paddingAngle={5}
+                            cornerRadius={5}
                           >
-                            View Details
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                            {progressData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                    <div className="flex flex-col gap-3 text-sm text-gray-700">
+                      {progressData.map((entry, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
+                          <span>
+                            {entry.name}: <span className="font-semibold">{entry.value}%</span>
+                          </span>
+                        </div>
+                      ))}
+                      <Separator className="my-2" />
+                      <div className="flex items-center space-x-2">
+                        <Trophy className="w-4 h-4 text-yellow-600" />
+                        <span>
+                          Total Quizzes Completed: <span className="font-semibold">15</span>
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <BarChart2 className="w-4 h-4 text-blue-600" />
+                        <span>
+                          Total Attempts: <span className="font-semibold">28</span>
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Quick Stats Cards */}
+                <div className="grid grid-cols-1 gap-6">
+                  <Card className="shadow-sm border-gray-200">
+                    <CardContent className="p-6 flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                        <Trophy className="w-6 h-6 text-orange-600" />
+                      </div>
+                      <div>
+                        <p className="text-3xl font-bold text-gray-900">85%</p>
+                        <p className="text-sm text-gray-600">Average Score</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                  <Card className="shadow-sm border-gray-200">
+                    <CardContent className="p-6 flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+                        <BookOpen className="w-6 h-6 text-pink-600" />
+                      </div>
+                      <div>
+                        <p className="text-3xl font-bold text-gray-900">5</p>
+                        <p className="text-sm text-gray-600">Quizzes This Week</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
+
+              {/* Recent Quiz Activity List */}
+              <Card className="shadow-sm border-gray-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Recent Quiz Activity</CardTitle>
+                  <CardDescription className="text-gray-600">Review your most recent quiz attempts.</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Quiz Name
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Highest Score
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Attempts
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Last Attempt
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {participatedQuizzes.map((quiz) => (
+                          <tr key={quiz.id}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{quiz.name}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Badge className={getScoreColor(quiz.highestScore, quiz.totalQuestions)}>
+                                {quiz.highestScore}/{quiz.totalQuestions}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{quiz.attempts}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                              {quiz.lastAttemptDate}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-transparent"
+                              >
+                                View Details
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
             </CardContent>
           </Card>
 
-          {/* Featured Quizzes */}
+          {/* Profile Settings Section */}
           <Card className="shadow-sm border-gray-200">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-900">Recommended Quizzes</CardTitle>
-              <CardDescription className="text-gray-600">Discover new quizzes to challenge yourself.</CardDescription>
+              <CardTitle className="text-xl font-semibold text-gray-900">Profile Settings</CardTitle>
+              <CardDescription className="text-gray-600">
+                Update your personal information and manage your account.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {featuredQuizzes.map((quiz) => (
-                <Card key={quiz.id} className="hover:shadow-lg transition-shadow duration-200 border-gray-200">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <Badge variant="outline" className="text-gray-600">
-                        {quiz.category}
-                      </Badge>
-                      {getFeaturedQuizStatus(quiz.isPremium)}
-                    </div>
-                    <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2">{quiz.title}</CardTitle>
-                    <CardDescription className="text-sm text-gray-600 line-clamp-2">{quiz.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pt-0">
-                    <div className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
-                      <BookOpen className="w-4 h-4" />
-                      <span>{quiz.questions} questions</span>
-                    </div>
-                    <Button
-                      className={`w-full h-10 font-medium ${
-                        quiz.isPremium
-                          ? "bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white"
-                          : "bg-gray-900 hover:bg-gray-800 text-white"
-                      }`}
-                      disabled={quiz.isPremium && !currentUser.isPremium}
-                    >
-                      {quiz.isPremium && !currentUser.isPremium ? (
-                        <>
-                          <Lock className="w-4 h-4 mr-2" />
-                          Upgrade to Access
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4 mr-2" />
-                          Take Now
-                        </>
-                      )}
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+            <CardContent className="space-y-6">
+              <div className="flex items-center space-x-4">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage
+                    src={currentUser.avatarUrl || "/placeholder.svg?height=80&width=80"}
+                    alt={currentUser.name}
+                  />
+                  <AvatarFallback className="bg-gradient-to-br from-orange-400 to-pink-400 text-white text-2xl">
+                    {currentUser.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{currentUser.name}</h3>
+                  <p className="text-sm text-gray-600">{currentUser.email}</p>
+                  <Badge variant="outline" className="mt-2 text-gray-600">
+                    Status: {currentUser.status}
+                  </Badge>
+                  {currentUser.isPremium && (
+                    <Badge className="ml-2 bg-gradient-to-r from-orange-400 to-pink-400 text-white">
+                      <Crown className="w-3 h-3 mr-1" />
+                      Premium User
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <Separator />
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="name" className="text-right">
+                    Name
+                  </Label>
+                  <Input
+                    id="name"
+                    value={profileForm.name}
+                    onChange={handleProfileChange}
+                    className="col-span-3 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="email" className="text-right">
+                    Email
+                  </Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={profileForm.email}
+                    onChange={handleProfileChange}
+                    className="col-span-3 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleChangePassword}
+                  className="text-blue-600 border-blue-200 hover:bg-blue-50 bg-transparent"
+                >
+                  <Key className="w-4 h-4 mr-2" />
+                  Change Password
+                </Button>
+                <Button
+                  onClick={handleSaveProfile}
+                  className="bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

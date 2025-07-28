@@ -15,11 +15,11 @@ import { Routes, Route } from 'react-router-dom'
 function App() {
   return (
     <>
-      <AppHeader />
+      <AppHeader isLoggedIn={true} userName="Guest" />
       <main className="min-h-[calc(100vh-64px-56px)] flex flex-col justify-center">
         <Routes>
           <Route path="/" element={<QuizAuthPage />} />
-          <Route path="/result" element={<QuizResultPage />} />
+          <Route path="/result" element={<QuizResultPage isPremium={false} />} />
           <Route path="/history" element={<QuizHistoryPage />} />
           <Route path="/homepage" element={<Quizhomepage />} />
           <Route path="/test" element={<QuizTakingPage />} />
@@ -27,7 +27,7 @@ function App() {
           <Route path="/create" element={<CreateQuizPage />} />
           <Route path="/manage" element={<ManageQuizzesPage />} />
           <Route path="/admin" element={<AdminDashboardPage />} />
-          <Route path="/dashboard" element={<UserDashboardPage />} />
+          <Route path="/profile" element={<UserDashboardPage />} />
         </Routes>
       </main>
       <AppFooter />

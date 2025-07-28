@@ -24,7 +24,6 @@ interface AppHeaderProps {
 export function AppHeader({ isLoggedIn = true, userName = "John Doe", userAvatarUrl }: AppHeaderProps) {
   const navigationLinks = [
     { name: "Trang chủ", to: "/homepage" },
-    { name: "My Dashboard", to: "/dashboard" },
     { name: "Bài quiz của tôi", to: "/manage" },
     { name: "Lịch sử", to: "/history" },
     { name: "Nâng cấp", to: "/upgrade" },
@@ -83,18 +82,21 @@ export function AppHeader({ isLoggedIn = true, userName = "John Doe", userAvatar
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuItem>
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile">
+                    {" "}
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem>
+                  {/* <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Settings</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <HelpCircle className="mr-2 h-4 w-4" />
                     <span>Support</span>
-                  </DropdownMenuItem>
+                  </DropdownMenuItem> */}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-red-600 focus:text-red-600">
@@ -163,18 +165,21 @@ export function AppHeader({ isLoggedIn = true, userName = "John Doe", userAvatar
                         <span className="text-sm text-muted-foreground">m@example.com</span>
                       </div>
                     </div>
-                    <Button variant="ghost" className="justify-start text-gray-700 hover:text-orange-600">
-                      <User className="mr-2 h-4 w-4" />
-                      Profile
-                    </Button>
-                    <Button variant="ghost" className="justify-start text-gray-700 hover:text-orange-600">
+                    <Link to="/profile" className="w-full">
+                      {" "}
+                      <Button variant="ghost" className="justify-start text-gray-700 hover:text-orange-600">
+                        <User className="mr-2 h-4 w-4" />
+                        Profile
+                      </Button>
+                    </Link>
+                    {/* <Button variant="ghost" className="justify-start text-gray-700 hover:text-orange-600">
                       <Settings className="mr-2 h-4 w-4" />
                       Settings
                     </Button>
                     <Button variant="ghost" className="justify-start text-gray-700 hover:text-orange-600">
                       <HelpCircle className="mr-2 h-4 w-4" />
                       Support
-                    </Button>
+                    </Button> */}
                     <Button variant="ghost" className="justify-start text-red-600 hover:text-red-700">
                       <LogOut className="mr-2 h-4 w-4" />
                       Log out
