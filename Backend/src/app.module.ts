@@ -13,6 +13,7 @@ import { Answer } from './answers/answer.schema';
 import { AnswerModule } from './answers/answer.module';
 import { TestAttemptModule } from './test-attempts/test-attempt.module';
 import { QuestionModule } from './questions/question.module';
+import { NotificationModule } from './notifications/notification.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { QuestionModule } from './questions/question.module';
     QuestionModule,
     AnswerModule,
     TestAttemptModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
