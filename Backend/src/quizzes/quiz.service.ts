@@ -100,7 +100,7 @@ export class QuizService {
   async update(id: string, updateData: UpdateQuizDto, userId: string) {
     const quiz = await this.quizModel.findById(id);
     if (!quiz) throw new NotFoundException('Quiz not found');
-    if (quiz.user_id.toString() !== userId) {
+    if (quiz.user_id.toString() !== userId.toString()) {
       throw new ForbiddenException('Bạn không có quyền sửa quiz này');
     }
     Object.assign(quiz, updateData);
@@ -118,7 +118,7 @@ export class QuizService {
   async delete(id: string, userId: string) {
     const quiz = await this.quizModel.findById(id);
     if (!quiz) throw new NotFoundException('Quiz not found');
-    if (quiz.user_id.toString() !== userId) {
+    if (quiz.user_id.toString() !== userId.toString()) {
       throw new ForbiddenException('Bạn không có quyền xóa quiz này');
     }
     // 1. Lấy tất cả question của quiz
@@ -179,10 +179,20 @@ export class QuizService {
     // Gọi hàm extract, nhận về object thay vì mảng
     const aiQuizObj = await this.extractQuizFromTextGemini(rawText);
 
+    // Validate time_limit from AI response
+    let validatedTimeLimit = aiQuizObj.time_limit ?? null;
+    if (validatedTimeLimit !== null && validatedTimeLimit !== undefined) {
+      if (validatedTimeLimit < 1) {
+        validatedTimeLimit = null; // Invalid, set to no limit
+      } else if (validatedTimeLimit > 480) {
+        validatedTimeLimit = 480; // Cap at 8 hours
+      }
+    }
+
     const quizMeta = {
       title: aiQuizObj.title || file.originalname.replace(/\.[^/.]+$/, ''),
       description: aiQuizObj.description || 'Quiz được tạo tự động từ file.',
-      time_limit: aiQuizObj.time_limit ?? null,
+      time_limit: validatedTimeLimit,
       user_id: new Types.ObjectId(userId),
       is_premium: false,
     };
@@ -232,7 +242,7 @@ export class QuizService {
     // Kiểm tra API key
     const API_KEY = process.env.GEMINI_API_KEY;
     if (!API_KEY) {
-      throw new Error('GEMINI_API_KEY environment variable is not set');
+      throw new InternalServerErrorException('GEMINI_API_KEY environment variable is not set');
     }
 
     // Khởi tạo Gemini AI client
@@ -275,28 +285,56 @@ ${rawText}
 
       jsonText = jsonText.replace(/```json|```/g, '').trim();
 
-      // Parse JSON response từ AI
-      const parsedJson = JSON.parse(jsonText);
+      // Parse JSON response từ AI với error handling
+      let parsedJson;
+      try {
+        parsedJson = JSON.parse(jsonText);
+      } catch (parseError) {
+        console.error('Failed to parse AI response as JSON:', jsonText);
+        throw new InternalServerErrorException(
+          'Phản hồi từ AI không đúng định dạng JSON. Vui lòng thử lại.',
+        );
+      }
+
+      // Validate basic structure
+      if (!parsedJson || typeof parsedJson !== 'object') {
+        throw new BadRequestException('AI response is not a valid object.');
+      }
 
       // Kiểm tra cơ bản: đảm bảo response có cấu trúc đúng
       if (!parsedJson.questions || !Array.isArray(parsedJson.questions)) {
-        throw new Error('API response không có mảng questions hợp lệ.');
+        throw new BadRequestException('API response không có mảng questions hợp lệ.');
       }
 
       // Validate each question structure
-      for (const question of parsedJson.questions) {
+      for (const [index, question] of parsedJson.questions.entries()) {
+        // Check required fields
         if (
           !question.questionText ||
+          typeof question.questionText !== 'string' ||
           !question.questionType ||
-          !Array.isArray(question.options)
+          !Array.isArray(question.options) ||
+          question.options.length < 2
         ) {
-          throw new Error('Cấu trúc câu hỏi không hợp lệ từ AI response.');
+          throw new BadRequestException(`Cấu trúc câu hỏi ${index + 1} không hợp lệ từ AI response.`);
         }
 
         if (!['mcq', 'true_false'].includes(question.questionType)) {
-          throw new Error(
-            `Loại câu hỏi không được hỗ trợ: ${question.questionType}`,
+          throw new BadRequestException(
+            `Loại câu hỏi không được hỗ trợ ở câu ${index + 1}: ${question.questionType}`,
           );
+        }
+
+        // Validate correct answer exists in options
+        if (!question.correctAnswer || !question.options.includes(question.correctAnswer)) {
+          throw new BadRequestException(
+            `Đáp án đúng của câu ${index + 1} không có trong danh sách lựa chọn.`,
+          );
+        }
+
+        // Validate question number
+        if (question.questionNumber && (typeof question.questionNumber !== 'number' || question.questionNumber < 1)) {
+          question.questionNumber = index + 1; // Auto-fix invalid question numbers
         }
       }
       return parsedJson;

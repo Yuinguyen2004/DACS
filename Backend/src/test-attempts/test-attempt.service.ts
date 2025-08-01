@@ -139,20 +139,16 @@ export class TestAttemptService {
    * 6. Luu ket qua vao database
    */
   async submitTest(submitData: SubmitTestDto, userId: string) {
-    // Check if attempt should be timed out first
-    const isTimedOut = await this.checkAndTimeoutAttempt(submitData.attempt_id);
-    if (isTimedOut) {
-      throw new BadRequestException(
-        'Test attempt has been automatically timed out due to exceeding time limit',
-      );
-    }
-
-    // 1. Tìm attempt dang in_progress
-    const attempt = await this.testAttemptModel.findOne({
-      _id: new Types.ObjectId(submitData.attempt_id),
-      user_id: new Types.ObjectId(userId),
-      status: 'in_progress',
-    });
+    // 1. Tìm attempt và lock nó để tránh race condition
+    const attempt = await this.testAttemptModel.findOneAndUpdate(
+      {
+        _id: new Types.ObjectId(submitData.attempt_id),
+        user_id: new Types.ObjectId(userId),
+        status: 'in_progress',
+      },
+      { status: 'submitting' }, // Temporary status to prevent race condition
+      { new: true }
+    );
 
     if (!attempt) {
       throw new NotFoundException(
@@ -160,122 +156,151 @@ export class TestAttemptService {
       );
     }
 
-    // Lấy quiz info
-    const quiz = await this.quizModel.findById(attempt.quiz_id);
-    if (!quiz) {
-      throw new NotFoundException('Quiz not found');
-    }
-
-    // Them: Tinh thoi gian tu server
-    const completedAt = new Date();
-    const completionTime = Math.floor(
-      (completedAt.getTime() - attempt.started_at.getTime()) / 1000,
-    );
-
-    // Check time limit and determine if submission is late
-    let isLate = false;
-    if (quiz.time_limit) {
-      const timeLimitInSeconds = quiz.time_limit * 60;
-      const GRACE_PERIOD = 30; // 30 seconds grace period for network delays
-
-      if (completionTime > timeLimitInSeconds + GRACE_PERIOD) {
-        // Too late - reject submission completely
-        throw new BadRequestException(
-          `Test submission exceeded time limit by too much. Time limit: ${quiz.time_limit} minutes, Time taken: ${Math.ceil(completionTime / 60)} minutes`,
-        );
-      } else if (completionTime > timeLimitInSeconds) {
-        // Late but within grace period - allow but mark as late
-        isLate = true;
+    try {
+      // Lấy quiz info
+      const quiz = await this.quizModel.findById(attempt.quiz_id);
+      if (!quiz) {
+        // Rollback status if quiz not found
+        attempt.status = 'in_progress';
+        await attempt.save();
+        throw new NotFoundException('Quiz not found');
       }
-    }
 
-    // 2. Lay tat ca cau hoi cua quiz
-    const questions = await this.questionModel.find({
-      quiz_id: new Types.ObjectId(attempt.quiz_id),
-    });
-
-    if (questions.length === 0) {
-      throw new BadRequestException('Quiz has no questions');
-    }
-
-    // 3. Kiem tra tung cau tra loi
-    let correctAnswers = 0;
-    const processedAnswers: Array<{
-      question_id: Types.ObjectId;
-      selected_answer_id: Types.ObjectId;
-      is_correct: boolean;
-    }> = [];
-
-    // Duyet qua tung cau tra loi
-    for (const answerSubmission of submitData.answers) {
-      // Kiem tra cau hoi co ton tai trong quiz
-      const question = questions.find(
-        (q) =>
-          (q._id as Types.ObjectId).toString() === answerSubmission.question_id,
+      // Tính thời gian từ server
+      const completedAt = new Date();
+      const completionTime = Math.floor(
+        (completedAt.getTime() - attempt.started_at.getTime()) / 1000,
       );
-      if (!question) {
-        throw new BadRequestException(
-          `Question ${answerSubmission.question_id} not found in quiz`,
-        );
+
+      // Check time limit and determine if submission is late
+      let isLate = false;
+      if (quiz.time_limit && quiz.time_limit > 0) {
+        const timeLimitInSeconds = quiz.time_limit * 60;
+        const GRACE_PERIOD = 30; // 30 seconds grace period for network delays
+
+        if (completionTime > timeLimitInSeconds + GRACE_PERIOD) {
+          // Too late - reject submission completely
+          attempt.status = 'abandoned';
+          attempt.completed_at = completedAt;
+          attempt.completion_time = completionTime;
+          await attempt.save();
+          
+          throw new BadRequestException(
+            `Test submission exceeded time limit by too much. Time limit: ${quiz.time_limit} minutes, Time taken: ${Math.ceil(completionTime / 60)} minutes`,
+          );
+        } else if (completionTime > timeLimitInSeconds) {
+          // Late but within grace period - allow but mark as late
+          isLate = true;
+        }
       }
 
-      // Lay dap an duoc chon
-      const selectedAnswer = await this.answerModel.findById(
-        answerSubmission.selected_answer_id,
-      );
-      if (!selectedAnswer) {
-        throw new BadRequestException(
-          `Answer ${answerSubmission.selected_answer_id} not found`,
-        );
-      }
-
-      // Kiem tra dap an co thuoc cau hoi khong
-      if (
-        selectedAnswer.question_id.toString() !== answerSubmission.question_id
-      ) {
-        throw new BadRequestException(
-          'Answer does not belong to the specified question',
-        );
-      }
-
-      // Kiem tra dap an co dung khong va tang so cau dung
-      const isCorrect = selectedAnswer.is_correct;
-      if (isCorrect) {
-        correctAnswers++;
-      }
-
-      processedAnswers.push({
-        question_id: new Types.ObjectId(answerSubmission.question_id),
-        selected_answer_id: new Types.ObjectId(
-          answerSubmission.selected_answer_id,
-        ),
-        is_correct: isCorrect,
+      // 2. Lấy tất cả câu hỏi của quiz
+      const questions = await this.questionModel.find({
+        quiz_id: new Types.ObjectId(attempt.quiz_id),
       });
+
+      if (questions.length === 0) {
+        // Rollback status if no questions
+        attempt.status = 'in_progress';
+        await attempt.save();
+        throw new BadRequestException('Quiz has no questions');
+      }
+
+      // 3. Kiểm tra từng câu trả lời
+      let correctAnswers = 0;
+      const processedAnswers: Array<{
+        question_id: Types.ObjectId;
+        selected_answer_id: Types.ObjectId;
+        is_correct: boolean;
+      }> = [];
+
+      // Duyệt qua từng câu trả lời
+      for (const answerSubmission of submitData.answers) {
+        // Kiểm tra câu hỏi có tồn tại trong quiz
+        const question = questions.find(
+          (q) =>
+            (q._id as Types.ObjectId).toString() === answerSubmission.question_id,
+        );
+        if (!question) {
+          // Rollback status if invalid question
+          attempt.status = 'in_progress';
+          await attempt.save();
+          throw new BadRequestException(
+            `Question ${answerSubmission.question_id} not found in quiz`,
+          );
+        }
+
+        // Lấy đáp án được chọn
+        const selectedAnswer = await this.answerModel.findById(
+          answerSubmission.selected_answer_id,
+        );
+        if (!selectedAnswer) {
+          // Rollback status if invalid answer
+          attempt.status = 'in_progress';
+          await attempt.save();
+          throw new BadRequestException(
+            `Answer ${answerSubmission.selected_answer_id} not found`,
+          );
+        }
+
+        // Kiểm tra đáp án có thuộc câu hỏi không (sử dụng toString() để so sánh an toàn)
+        if (
+          selectedAnswer.question_id.toString() !== answerSubmission.question_id
+        ) {
+          // Rollback status if answer doesn't belong to question
+          attempt.status = 'in_progress';
+          await attempt.save();
+          throw new BadRequestException(
+            'Answer does not belong to the specified question',
+          );
+        }
+
+        // Kiểm tra đáp án có đúng không và tăng số câu đúng
+        const isCorrect = selectedAnswer.is_correct;
+        if (isCorrect) {
+          correctAnswers++;
+        }
+
+        processedAnswers.push({
+          question_id: new Types.ObjectId(answerSubmission.question_id),
+          selected_answer_id: new Types.ObjectId(
+            answerSubmission.selected_answer_id,
+          ),
+          is_correct: isCorrect,
+        });
+      }
+
+      const score = Math.round((correctAnswers / questions.length) * 100);
+
+      // Update attempt với kết quả
+      attempt.score = score;
+      attempt.correct_answers = correctAnswers;
+      attempt.incorrect_answers = questions.length - correctAnswers;
+      attempt.completion_time = completionTime;
+      attempt.completed_at = completedAt;
+      attempt.answers = processedAnswers;
+      attempt.status = isLate ? 'late' : 'completed';
+
+      await attempt.save();
+
+      // Trả về kết quả cho người dùng
+      return {
+        attempt_id: attempt._id,
+        score,
+        total_questions: questions.length,
+        correct_answers: correctAnswers,
+        incorrect_answers: questions.length - correctAnswers,
+        completion_time: completionTime,
+        percentage: score,
+      };
+    } catch (error) {
+      // Nếu có lỗi và attempt chưa được set status khác, rollback về in_progress
+      if (attempt.status === 'submitting') {
+        attempt.status = 'in_progress';
+        await attempt.save();
+      }
+      throw error;
     }
-
-    const score = Math.round((correctAnswers / questions.length) * 100);
-
-    // Update attempt với kết quả
-    attempt.score = score;
-    attempt.correct_answers = correctAnswers;
-    attempt.incorrect_answers = questions.length - correctAnswers;
-    attempt.completion_time = completionTime;
-    attempt.completed_at = completedAt;
-    attempt.answers = processedAnswers;
-    attempt.status = isLate ? 'late' : 'completed';
-
-    await attempt.save();
-
-    // Tra ve ket qua cho nguoi dung
-    return {
-      attempt_id: attempt._id,
-      score,
-      total_questions: questions.length,
-      correct_answers: correctAnswers,
-      incorrect_answers: questions.length - correctAnswers,
-      completion_time: completionTime,
-      percentage: score,
-    };
   }
 
   /**
@@ -370,10 +395,10 @@ export class TestAttemptService {
   @Cron('0 * * * * *', { name: 'timeoutOverdueAttempts' }) // Run every minute
   async timeoutOverdueAttempts() {
     try {
-      // Find all in_progress attempts
+      // Find all in_progress attempts (not submitting to avoid race condition)
       const inProgressAttempts = await this.testAttemptModel
         .find({
-          status: 'in_progress',
+          status: 'in_progress', // Only process truly in_progress, not submitting
         })
         .populate('quiz_id');
 
@@ -384,42 +409,55 @@ export class TestAttemptService {
         const quiz = attempt.quiz_id as any;
 
         // Skip if quiz is null or doesn't have time limit
-        if (!quiz || !quiz.time_limit) {
+        if (!quiz || !quiz.time_limit || quiz.time_limit <= 0) {
           continue;
         }
 
         const timeLimitInMs = quiz.time_limit * 60 * 1000; // Convert minutes to milliseconds
         const elapsedTime = now.getTime() - attempt.started_at.getTime();
 
-        // If elapsed time exceeds time limit, mark as abandoned
+        // If elapsed time exceeds time limit, try to mark as abandoned with race condition protection
         if (elapsedTime > timeLimitInMs) {
-          attempt.status = 'abandoned';
-          attempt.completed_at = now;
-          attempt.completion_time = Math.floor(elapsedTime / 1000);
+          // Use atomic update to prevent race condition with submitTest
+          const updatedAttempt = await this.testAttemptModel.findOneAndUpdate(
+            {
+              _id: attempt._id,
+              status: 'in_progress', // Only update if still in_progress
+            },
+            {
+              status: 'abandoned',
+              completed_at: now,
+              completion_time: Math.floor(elapsedTime / 1000),
+            },
+            { new: true }
+          );
 
-          // Grade any completed questions
-          if (attempt.answers && attempt.answers.length > 0) {
-            const questions = await this.questionModel.find({
-              quiz_id: attempt.quiz_id,
-            });
+          // Only process if update was successful (means no race condition occurred)
+          if (updatedAttempt) {
+            // Grade any completed questions
+            if (updatedAttempt.answers && updatedAttempt.answers.length > 0) {
+              const questions = await this.questionModel.find({
+                quiz_id: updatedAttempt.quiz_id,
+              });
 
-            let correctAnswers = 0;
-            for (const answer of attempt.answers) {
-              if (answer.is_correct) {
-                correctAnswers++;
+              let correctAnswers = 0;
+              for (const answer of updatedAttempt.answers) {
+                if (answer.is_correct) {
+                  correctAnswers++;
+                }
               }
+
+              updatedAttempt.correct_answers = correctAnswers;
+              updatedAttempt.incorrect_answers = updatedAttempt.answers.length - correctAnswers;
+              updatedAttempt.score =
+                questions.length > 0
+                  ? Math.round((correctAnswers / questions.length) * 100)
+                  : 0;
+
+              await updatedAttempt.save();
             }
-
-            attempt.correct_answers = correctAnswers;
-            attempt.incorrect_answers = attempt.answers.length - correctAnswers;
-            attempt.score =
-              questions.length > 0
-                ? Math.round((correctAnswers / questions.length) * 100)
-                : 0;
+            timeoutCount++;
           }
-
-          await attempt.save();
-          timeoutCount++;
         }
       }
 

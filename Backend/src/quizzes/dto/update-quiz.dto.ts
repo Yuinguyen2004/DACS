@@ -1,4 +1,4 @@
-import { IsString, IsBoolean, IsOptional } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, IsNumber, Min, Max } from 'class-validator';
 
 export class UpdateQuizDto {
   @IsString()
@@ -7,6 +7,12 @@ export class UpdateQuizDto {
   @IsOptional()
   @IsString()
   description: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1, { message: 'Time limit must be at least 1 minute' })
+  @Max(480, { message: 'Time limit cannot exceed 480 minutes (8 hours)' })
+  time_limit?: number;
 
   @IsBoolean()
   is_Premium: boolean;

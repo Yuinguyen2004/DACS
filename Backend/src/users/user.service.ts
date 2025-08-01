@@ -20,7 +20,7 @@ export class UsersService {
     // check email hien da ton tai
     const emailExists = await this.userModel.findOne({ email: dto.email });
     if (emailExists) {
-      throw new Error('Email already exists');
+      throw new BadRequestException('Email already exists');
     }
 
     // hash password
