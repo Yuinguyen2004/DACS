@@ -15,6 +15,7 @@ import { Answer } from '../answers/answer.schema';
 import { User } from '../users/user.schema';
 import { SubmitTestDto } from './dto/submit-test.dto';
 import { StartTestResponseDto } from './dto/start-test-reponse.dto';
+import { LeaderboardService } from '../leaderboards/leaderboard.service';
 
 @Injectable()
 export class TestAttemptService {
@@ -24,6 +25,7 @@ export class TestAttemptService {
     @InjectModel(Question.name) private questionModel: Model<Question>,
     @InjectModel(Answer.name) private answerModel: Model<Answer>,
     @InjectModel(User.name) private userModel: Model<User>,
+    private leaderboardService: LeaderboardService,
   ) {}
 
   /**
@@ -282,6 +284,29 @@ export class TestAttemptService {
       attempt.status = isLate ? 'late' : 'completed';
 
       await attempt.save();
+
+      // Tự động thêm vào leaderboard nếu test hoàn thành thành công (chỉ giữ score cao nhất)
+      if (attempt.status === 'completed' || attempt.status === 'late') {
+        try {
+          const result = await this.leaderboardService.createOrUpdateBestScore({
+            quizId: attempt.quiz_id.toString(),
+            userId: attempt.user_id.toString(),
+            attemptId: (attempt._id as Types.ObjectId).toString(),
+            score: score,
+            timeSpent: completionTime,
+          });
+          
+          console.log(`Leaderboard ${result.action}:`, {
+            attemptId: (attempt._id as Types.ObjectId).toString(),
+            score,
+            timeSpent: completionTime,
+            action: result.action,
+          });
+        } catch (leaderboardError) {
+          // Log error but don't fail the test submission
+          console.error('Failed to update leaderboard:', leaderboardError);
+        }
+      }
 
       // Trả về kết quả cho người dùng
       return {

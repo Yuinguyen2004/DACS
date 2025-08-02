@@ -7,13 +7,12 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/user.module';
 import { AuthModule } from './auth/auth.module';
 import { PackageModule } from './packages/package.module';
-import { Quiz } from './quizzes/quiz.schema';
 import { QuizModule } from './quizzes/quiz.module';
-import { Answer } from './answers/answer.schema';
 import { AnswerModule } from './answers/answer.module';
 import { TestAttemptModule } from './test-attempts/test-attempt.module';
 import { QuestionModule } from './questions/question.module';
 import { NotificationModule } from './notifications/notification.module';
+import { LeaderboardModule } from './leaderboards/leaderboard.module';
 
 @Module({
   imports: [
@@ -36,6 +35,7 @@ import { NotificationModule } from './notifications/notification.module';
     AnswerModule,
     TestAttemptModule,
     NotificationModule,
+    LeaderboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

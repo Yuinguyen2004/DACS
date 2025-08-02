@@ -7,6 +7,7 @@ import { Quiz, QuizSchema } from '../quizzes/quiz.schema';
 import { Question, QuestionSchema } from '../questions/question.schema';
 import { Answer, AnswerSchema } from '../answers/answer.schema';
 import { User, UserSchema } from '../users/user.schema';
+import { LeaderboardModule } from '../leaderboards/leaderboard.module';
 
 /**
  * Module chinh cua test-attempts
@@ -23,6 +24,7 @@ import { User, UserSchema } from '../users/user.schema';
       { name: Answer.name, schema: AnswerSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    LeaderboardModule,
   ],
   controllers: [TestAttemptController],
   providers: [TestAttemptService],
