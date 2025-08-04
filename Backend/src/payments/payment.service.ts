@@ -87,15 +87,8 @@ export class PaymentService {
     const vnpTmnCode = this.configService.get<string>('VNP_TMNCODE');
     const vnpHashSecret = this.configService.get<string>('VNP_HASH_SECRET');
     const vnpReturnUrl = this.configService.get<string>('VNP_RETURN_URL');
-    const vnpIpnUrl = this.configService.get<string>('VNP_IPN_URL');
 
-    if (
-      !vnpUrl ||
-      !vnpTmnCode ||
-      !vnpHashSecret ||
-      !vnpReturnUrl ||
-      !vnpIpnUrl
-    ) {
+    if (!vnpUrl || !vnpTmnCode || !vnpHashSecret || !vnpReturnUrl) {
       throw new BadRequestException('VNPAY configuration is incomplete');
     }
 
@@ -108,6 +101,17 @@ export class PaymentService {
       now.getHours().toString().padStart(2, '0') +
       now.getMinutes().toString().padStart(2, '0') +
       now.getSeconds().toString().padStart(2, '0');
+
+    // Tạo expiry date (15 phút sau create date)
+    const expireTime = new Date(now.getTime() + 15 * 60 * 1000);
+    const expireDate =
+      expireTime.getFullYear().toString() +
+      (expireTime.getMonth() + 1).toString().padStart(2, '0') +
+      expireTime.getDate().toString().padStart(2, '0') +
+      expireTime.getHours().toString().padStart(2, '0') +
+      expireTime.getMinutes().toString().padStart(2, '0') +
+      expireTime.getSeconds().toString().padStart(2, '0');
+
     const amount = Math.round(payment.amount * 100); // Chuyển đổi sang xu VND
 
     const vnpParams = {
@@ -116,23 +120,23 @@ export class PaymentService {
       vnp_TmnCode: vnpTmnCode,
       vnp_Amount: amount.toString(),
       vnp_CreateDate: createDate,
+      vnp_ExpireDate: expireDate,
       vnp_CurrCode: 'VND',
       vnp_IpAddr: clientIp,
       vnp_Locale: 'vn',
       vnp_OrderInfo: `${payment.payment_code}`,
       vnp_OrderType: 'other',
       vnp_ReturnUrl: vnpReturnUrl,
-      vnp_IpnUrl: vnpIpnUrl,
       vnp_TxnRef: payment.payment_code,
     };
 
     // Sắp xếp tham số theo thứ tự bảng chữ cái để tạo chữ ký
     const sortedParams = this.sortParams(vnpParams);
 
-    // Tạo chuỗi truy vấn cho chữ ký (không mã hóa URL)
+    // Tạo chuỗi truy vấn cho chữ ký với URL encoding
     const signatureString = Object.keys(sortedParams)
       .sort()
-      .map((key) => `${key}=${sortedParams[key]}`)
+      .map((key) => `${key}=${encodeURIComponent(sortedParams[key])}`)
       .join('&');
 
     // Ghi log thông tin chữ ký chi tiết để debug
@@ -302,9 +306,11 @@ export class PaymentService {
           },
         ],
         application_context: {
-          return_url: this.configService.get<string>('PAYPAL_RETURN_URL_SUCCESS') || 
+          return_url:
+            this.configService.get<string>('PAYPAL_RETURN_URL_SUCCESS') ||
             `${this.configService.get<string>('BASE_URL') || 'http://localhost:3000'}/api/v1/payments/paypal/return-url/success`,
-          cancel_url: this.configService.get<string>('PAYPAL_RETURN_URL_CANCEL') || 
+          cancel_url:
+            this.configService.get<string>('PAYPAL_RETURN_URL_CANCEL') ||
             `${this.configService.get<string>('BASE_URL') || 'http://localhost:3000'}/api/v1/payments/paypal/return-url/cancel`,
         },
       };
@@ -392,8 +398,12 @@ export class PaymentService {
     return this.paymentModel.findOne({ paypal_order_id: orderId }).exec();
   }
 
-  async findByPayPalPaymentId(paypalPaymentId: string): Promise<PaymentDocument | null> {
-    return this.paymentModel.findOne({ paypal_payment_id: paypalPaymentId }).exec();
+  async findByPayPalPaymentId(
+    paypalPaymentId: string,
+  ): Promise<PaymentDocument | null> {
+    return this.paymentModel
+      .findOne({ paypal_payment_id: paypalPaymentId })
+      .exec();
   }
 
   async verifyPayPalWebhook(webhookData: any, headers: any): Promise<boolean> {
@@ -409,8 +419,10 @@ export class PaymentService {
 
       // Placeholder cho xác minh webhook
       // Trong production, sử dụng PayPal SDK để xác minh các headers này
-      this.logger.log('PayPal webhook verification (placeholder - implement proper verification)');
-      
+      this.logger.log(
+        'PayPal webhook verification (placeholder - implement proper verification)',
+      );
+
       return true; // Tạm thời - cần implement xác minh thích hợp
     } catch (error) {
       this.logger.error('Error verifying PayPal webhook:', error);

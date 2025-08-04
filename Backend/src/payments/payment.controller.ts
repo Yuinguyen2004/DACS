@@ -529,6 +529,7 @@ export class PaymentController {
 
       const paymentCode = query.vnp_TxnRef;
       const vnpResponseCode = query.vnp_ResponseCode;
+      const vnpTransactionNo = query.vnp_TransactionNo;
 
       // Tìm thanh toán
       const payment = await this.paymentService.findByPaymentCode(paymentCode);
@@ -540,21 +541,62 @@ export class PaymentController {
         };
       }
 
-      if (vnpResponseCode === '00') {
-        return {
-          success: true,
-          message: 'Payment successful',
-          paymentCode: paymentCode,
-          amount: payment.amount,
-          redirectUrl: '/payment/success',
-        };
+      // Cập nhật trạng thái thanh toán nếu chưa được cập nhật
+      if (payment.status === PaymentStatus.PENDING) {
+        if (vnpResponseCode === '00') {
+          // Thanh toán thành công
+          await this.paymentService.updatePaymentStatus(
+            (payment._id as any).toString(),
+            PaymentStatus.SUCCESS,
+            vnpTransactionNo,
+            vnpResponseCode,
+          );
+          
+          this.logger.log(`Payment ${payment._id} updated to SUCCESS via return URL`);
+          
+          return {
+            success: true,
+            message: 'Payment successful',
+            paymentCode: paymentCode,
+            amount: payment.amount,
+            redirectUrl: '/payment/success',
+          };
+        } else {
+          // Thanh toán thất bại
+          await this.paymentService.updatePaymentStatus(
+            (payment._id as any).toString(),
+            PaymentStatus.FAILED,
+            vnpTransactionNo,
+            vnpResponseCode,
+          );
+          
+          this.logger.log(`Payment ${payment._id} updated to FAILED via return URL`);
+          
+          return {
+            success: false,
+            message: 'Payment failed',
+            errorCode: vnpResponseCode,
+            redirectUrl: '/payment/failed',
+          };
+        }
       } else {
-        return {
-          success: false,
-          message: 'Payment failed',
-          errorCode: vnpResponseCode,
-          redirectUrl: '/payment/failed',
-        };
+        // Thanh toán đã được xử lý trước đó (có thể từ IPN)
+        if (payment.status === PaymentStatus.SUCCESS) {
+          return {
+            success: true,
+            message: 'Payment successful',
+            paymentCode: paymentCode,
+            amount: payment.amount,
+            redirectUrl: '/payment/success',
+          };
+        } else {
+          return {
+            success: false,
+            message: 'Payment failed',
+            errorCode: payment.vnp_response_code || vnpResponseCode,
+            redirectUrl: '/payment/failed',
+          };
+        }
       }
     } catch (error) {
       this.logger.error('Error processing return URL:', error);
