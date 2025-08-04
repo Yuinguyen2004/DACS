@@ -1,4 +1,10 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsMongoId } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsArray,
+  IsMongoId,
+} from 'class-validator';
 
 export class BroadcastNotificationDto {
   @IsString()
@@ -18,6 +24,9 @@ export class BroadcastNotificationDto {
 
   @IsOptional()
   @IsArray()
-  @IsMongoId({ each: true, message: 'Each user ID must be a valid MongoDB ObjectId' })
+  @IsMongoId({
+    each: true,
+    message: 'Each user ID must be a valid MongoDB ObjectId',
+  })
   userIds?: string[]; // Nếu không có thì broadcast cho tất cả users
 }

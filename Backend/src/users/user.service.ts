@@ -67,4 +67,35 @@ export class UsersService {
 
     return { message: 'Đổi mật khẩu thành công' };
   }
+
+  async updateUserPackage(
+    userId: string,
+    packageId: string,
+    subscriptionType: string,
+    subscriptionStartDate: Date,
+    subscriptionEndDate?: Date,
+  ) {
+    const updateData: any = {
+      package_id: packageId,
+      subscriptionType,
+      subscriptionStartDate,
+      status: 'active', // Activate user after successful payment
+    };
+
+    if (subscriptionEndDate) {
+      updateData.subscriptionEndDate = subscriptionEndDate;
+    }
+
+    const user = await this.userModel.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true }
+    );
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
 }

@@ -1,4 +1,11 @@
-import { IsString, IsBoolean, IsOptional, IsNumber, Min, Max } from 'class-validator';
+import {
+  IsString,
+  IsBoolean,
+  IsOptional,
+  IsNumber,
+  Min,
+  Max,
+} from 'class-validator';
 
 export class CreateQuizDto {
   @IsString()

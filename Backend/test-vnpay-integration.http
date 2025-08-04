@@ -1,0 +1,43 @@
+### Test VNPAY Integration Endpoints
+
+### 1. Create Payment URL (requires authentication)
+POST http://localhost:3000/api/v1/payments/vnpay/create-url
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "packageId": "68720081a84bc31c0dfb695f"
+}
+
+###
+
+### 2. Test IPN Handler (simulate VNPAY callback)
+GET http://localhost:3000/api/v1/payments/vnpay/ipn-handler?vnp_Amount=10000&vnp_BankCode=NCB&vnp_BankTranNo=VNP14637509&vnp_CardType=ATM&vnp_OrderInfo=Thanh+toan+goi+dich+vu+PAY68720081a84bc31c0dfb695f&vnp_PayDate=20250803085918&vnp_ResponseCode=00&vnp_TmnCode=2QXUI4J4&vnp_TransactionNo=14637509&vnp_TransactionStatus=00&vnp_TxnRef=PAY68720081a84bc31c0dfb695f_1704295748000&vnp_SecureHash=SECURE_HASH_HERE
+
+###
+
+### 3. Test Return URL (simulate user return from VNPAY)
+GET http://localhost:3000/api/v1/payments/vnpay/return-url?vnp_Amount=10000&vnp_BankCode=NCB&vnp_BankTranNo=VNP14637509&vnp_CardType=ATM&vnp_OrderInfo=Thanh+toan+goi+dich+vu+PAY68720081a84bc31c0dfb695f&vnp_PayDate=20250803085918&vnp_ResponseCode=00&vnp_TmnCode=2QXUI4J4&vnp_TransactionNo=14637509&vnp_TransactionStatus=00&vnp_TxnRef=PAY68720081a84bc31c0dfb695f_1704295748000&vnp_SecureHash=SECURE_HASH_HERE
+
+###
+
+### 4. Check Payment Status (requires authentication)
+GET http://localhost:3000/api/v1/payments/status/PAY68720081a84bc31c0dfb695f_1704295748000
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+###
+
+### Instructions:
+# 1. Replace YOUR_JWT_TOKEN_HERE with a valid JWT token
+# 2. Package ID is already set to your Premium package: 68720081a84bc31c0dfb695f (100 VND, 30 days)
+# 3. Replace SECURE_HASH_HERE with a valid VNPAY signature (calculated using your hash secret)
+# 4. Update transaction details as needed
+# 
+# Package Details:
+# - Name: Premium
+# - Price: 100 VND (converted to 10000 cents for VNPAY)
+# - Duration: 30 days
+# - Benefit: "Khong gioi han lam bai, co the dang bai."
+# 
+# Note: The IPN and Return URL endpoints will fail signature validation 
+# unless you provide valid signatures calculated with your VNPAY hash secret

@@ -1,17 +1,17 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Body, 
-  Patch, 
-  Param, 
-  Delete, 
-  UseGuards, 
-  Req, 
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
   Query,
   ParseIntPipe,
   DefaultValuePipe,
-  ForbiddenException
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -55,7 +55,7 @@ export class NotificationController {
   @Roles('admin')
   async createSystemNotification(
     @Body() systemDto: SystemNotificationDto,
-  ): Promise<{ message: string, totalUsers: number }> {
+  ): Promise<{ message: string; totalUsers: number }> {
     return this.notificationService.createSystemNotification(systemDto);
   }
 
@@ -70,7 +70,13 @@ export class NotificationController {
     @Query('isRead') isRead?: string,
   ) {
     const isReadBool = isRead !== undefined ? isRead === 'true' : undefined;
-    return this.notificationService.findAllWithFilters(page, limit, userId, type, isReadBool);
+    return this.notificationService.findAllWithFilters(
+      page,
+      limit,
+      userId,
+      type,
+      isReadBool,
+    );
   }
 
   @Get('admin/stats')
@@ -107,7 +113,9 @@ export class NotificationController {
   @Delete('admin/user/:userId/all')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  async adminRemoveAllForUser(@Param('userId') userId: string): Promise<{ deletedCount: number }> {
+  async adminRemoveAllForUser(
+    @Param('userId') userId: string,
+  ): Promise<{ deletedCount: number }> {
     return this.notificationService.removeAllForUser(userId);
   }
 
@@ -139,32 +147,44 @@ export class NotificationController {
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string, @Req() req: any): Promise<Notification> {
+  async findOne(
+    @Param('id') id: string,
+    @Req() req: any,
+  ): Promise<Notification> {
     const userId = req.user.userId;
-    
+
     // Verify ownership for non-admin users
     if (req.user.role !== 'admin') {
-      const isOwner = await this.notificationService.verifyNotificationOwnership(id, userId);
+      const isOwner =
+        await this.notificationService.verifyNotificationOwnership(id, userId);
       if (!isOwner) {
-        throw new ForbiddenException('You can only access your own notifications');
+        throw new ForbiddenException(
+          'You can only access your own notifications',
+        );
       }
     }
-    
+
     return this.notificationService.findOne(id);
   }
 
   @Patch(':id/mark-read')
-  async markAsRead(@Param('id') id: string, @Req() req: any): Promise<Notification> {
+  async markAsRead(
+    @Param('id') id: string,
+    @Req() req: any,
+  ): Promise<Notification> {
     const userId = req.user.userId;
-    
+
     // Verify ownership for non-admin users
     if (req.user.role !== 'admin') {
-      const isOwner = await this.notificationService.verifyNotificationOwnership(id, userId);
+      const isOwner =
+        await this.notificationService.verifyNotificationOwnership(id, userId);
       if (!isOwner) {
-        throw new ForbiddenException('You can only mark your own notifications as read');
+        throw new ForbiddenException(
+          'You can only mark your own notifications as read',
+        );
       }
     }
-    
+
     return this.notificationService.markAsRead(id);
   }
 

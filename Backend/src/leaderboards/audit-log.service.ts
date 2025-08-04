@@ -34,23 +34,23 @@ export class AuditLogService {
     console.log(`Admin: ${logEntry.adminEmail} (${logEntry.adminId})`);
     console.log(`Action: ${logEntry.action} ${logEntry.resource}`);
     console.log(`Resource ID: ${logEntry.resourceId}`);
-    
+
     if (logEntry.changes) {
       console.log('Changes:', JSON.stringify(logEntry.changes, null, 2));
     }
-    
+
     if (logEntry.reason) {
       console.log(`Reason: ${logEntry.reason}`);
     }
-    
+
     if (logEntry.ipAddress) {
       console.log(`IP Address: ${logEntry.ipAddress}`);
     }
-    
+
     if (logEntry.userAgent) {
       console.log(`User Agent: ${logEntry.userAgent}`);
     }
-    
+
     console.log('========================');
 
     // Trong production, có thể lưu vào database hoặc external logging service

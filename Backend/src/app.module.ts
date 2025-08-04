@@ -13,6 +13,7 @@ import { TestAttemptModule } from './test-attempts/test-attempt.module';
 import { QuestionModule } from './questions/question.module';
 import { NotificationModule } from './notifications/notification.module';
 import { LeaderboardModule } from './leaderboards/leaderboard.module';
+import { PaymentModule } from './payments/payment.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { LeaderboardModule } from './leaderboards/leaderboard.module';
     TestAttemptModule,
     NotificationModule,
     LeaderboardModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -12,4 +12,22 @@ export class PackageService {
   async findAll() {
     return this.packageModel.find();
   }
+
+  async findById(id: string) {
+    return this.packageModel.findById(id);
+  }
+
+  async getPackageForPayment(id: string) {
+    const pkg = await this.packageModel.findById(id);
+    if (!pkg) {
+      throw new Error('Package not found');
+    }
+    return {
+      id: pkg._id,
+      name: pkg.name,
+      price: pkg.price,
+      duration: pkg.Duration,
+      benefit: pkg.Benefit,
+    };
+  }
 }

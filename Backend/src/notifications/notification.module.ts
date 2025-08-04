@@ -25,11 +25,14 @@ import { User, UserSchema } from '../users/user.schema';
   ],
   controllers: [NotificationController],
   providers: [
-    NotificationService, 
+    NotificationService,
     NotificationGateway,
     {
       provide: 'NOTIFICATION_GATEWAY_SETUP',
-      useFactory: (service: NotificationService, gateway: NotificationGateway) => {
+      useFactory: (
+        service: NotificationService,
+        gateway: NotificationGateway,
+      ) => {
         service.setNotificationGateway(gateway);
         return true;
       },

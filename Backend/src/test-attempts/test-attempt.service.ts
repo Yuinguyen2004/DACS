@@ -149,7 +149,7 @@ export class TestAttemptService {
         status: 'in_progress',
       },
       { status: 'submitting' }, // Temporary status to prevent race condition
-      { new: true }
+      { new: true },
     );
 
     if (!attempt) {
@@ -186,7 +186,7 @@ export class TestAttemptService {
           attempt.completed_at = completedAt;
           attempt.completion_time = completionTime;
           await attempt.save();
-          
+
           throw new BadRequestException(
             `Test submission exceeded time limit by too much. Time limit: ${quiz.time_limit} minutes, Time taken: ${Math.ceil(completionTime / 60)} minutes`,
           );
@@ -221,7 +221,8 @@ export class TestAttemptService {
         // Kiểm tra câu hỏi có tồn tại trong quiz
         const question = questions.find(
           (q) =>
-            (q._id as Types.ObjectId).toString() === answerSubmission.question_id,
+            (q._id as Types.ObjectId).toString() ===
+            answerSubmission.question_id,
         );
         if (!question) {
           // Rollback status if invalid question
@@ -295,7 +296,7 @@ export class TestAttemptService {
             score: score,
             timeSpent: completionTime,
           });
-          
+
           console.log(`Leaderboard ${result.action}:`, {
             attemptId: (attempt._id as Types.ObjectId).toString(),
             score,
@@ -454,7 +455,7 @@ export class TestAttemptService {
               completed_at: now,
               completion_time: Math.floor(elapsedTime / 1000),
             },
-            { new: true }
+            { new: true },
           );
 
           // Only process if update was successful (means no race condition occurred)
@@ -473,7 +474,8 @@ export class TestAttemptService {
               }
 
               updatedAttempt.correct_answers = correctAnswers;
-              updatedAttempt.incorrect_answers = updatedAttempt.answers.length - correctAnswers;
+              updatedAttempt.incorrect_answers =
+                updatedAttempt.answers.length - correctAnswers;
               updatedAttempt.score =
                 questions.length > 0
                   ? Math.round((correctAnswers / questions.length) * 100)

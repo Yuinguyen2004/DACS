@@ -1,0 +1,37 @@
+# Test create payment endpoint
+POST http://localhost:3000/payments/create
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "subscriptionType": "PREMIUM_MONTHLY",
+  "locale": "vn"
+}
+
+### Test pricing endpoint (public)
+GET http://localhost:3000/payments/pricing
+
+### Test health endpoint
+GET http://localhost:3000/payments/health
+
+### Test VNPay callback simulation (GET)
+GET http://localhost:3000/payments/vnpay/return?vnp_Amount=9900000&vnp_BankCode=NCB&vnp_BankTranNo=VNP13672394&vnp_CardType=ATM&vnp_OrderInfo=Thanh+toan+goi+PREMIUM_MONTHLY&vnp_PayDate=20250802130500&vnp_ResponseCode=00&vnp_TmnCode=DLDVBE3W&vnp_TransactionNo=13672394&vnp_TransactionStatus=00&vnp_TxnRef=ORDER_1673512345_ABC123&vnp_SecureHash=test_hash_here
+
+### Test VNPay IPN simulation (POST)
+POST http://localhost:3000/payments/vnpay/ipn
+Content-Type: application/json
+
+{
+  "vnp_Amount": "9900000",
+  "vnp_BankCode": "NCB",
+  "vnp_BankTranNo": "VNP13672394",
+  "vnp_CardType": "ATM",
+  "vnp_OrderInfo": "Thanh toan goi PREMIUM_MONTHLY",
+  "vnp_PayDate": "20250802130500",
+  "vnp_ResponseCode": "00",
+  "vnp_TmnCode": "DLDVBE3W",
+  "vnp_TransactionNo": "13672394",
+  "vnp_TransactionStatus": "00",
+  "vnp_TxnRef": "ORDER_1673512345_ABC123",
+  "vnp_SecureHash": "test_hash_here"
+}

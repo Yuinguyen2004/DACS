@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { User } from '../users/user.schema';
@@ -59,7 +63,14 @@ export class NotificationService {
     }
   }
 
-  async findAll(page: number = 1, limit: number = 10): Promise<{ notifications: Notification[], total: number, totalPages: number }> {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    notifications: Notification[];
+    total: number;
+    totalPages: number;
+  }> {
     try {
       const skip = (page - 1) * limit;
       const [notifications, total] = await Promise.all([
@@ -70,13 +81,13 @@ export class NotificationService {
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.notificationModel.countDocuments()
+        this.notificationModel.countDocuments(),
       ]);
 
       return {
         notifications,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       throw new BadRequestException('Failed to fetch notifications');
@@ -93,20 +104,31 @@ export class NotificationService {
         .findById(id)
         .populate('userId', 'name email')
         .exec();
-      
+
       if (!notification) {
         throw new NotFoundException('Notification not found');
       }
       return notification;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new BadRequestException('Failed to fetch notification');
     }
   }
 
-  async findByUserId(userId: string, page: number = 1, limit: number = 10): Promise<{ notifications: Notification[], total: number, totalPages: number }> {
+  async findByUserId(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{
+    notifications: Notification[];
+    total: number;
+    totalPages: number;
+  }> {
     try {
       if (!Types.ObjectId.isValid(userId)) {
         throw new BadRequestException('Invalid user ID format');
@@ -114,7 +136,7 @@ export class NotificationService {
 
       const skip = (page - 1) * limit;
       const userObjectId = new Types.ObjectId(userId);
-      
+
       const [notifications, total] = await Promise.all([
         this.notificationModel
           .find({ userId: userObjectId })
@@ -122,13 +144,13 @@ export class NotificationService {
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.notificationModel.countDocuments({ userId: userObjectId })
+        this.notificationModel.countDocuments({ userId: userObjectId }),
       ]);
 
       return {
         notifications,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -145,9 +167,9 @@ export class NotificationService {
       }
 
       return await this.notificationModel
-        .find({ 
-          userId: new Types.ObjectId(userId), 
-          isRead: false 
+        .find({
+          userId: new Types.ObjectId(userId),
+          isRead: false,
         })
         .sort({ createdAt: -1 })
         .exec();
@@ -167,7 +189,7 @@ export class NotificationService {
 
       return await this.notificationModel.countDocuments({
         userId: new Types.ObjectId(userId),
-        isRead: false
+        isRead: false,
       });
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -184,11 +206,7 @@ export class NotificationService {
       }
 
       const notification = await this.notificationModel
-        .findByIdAndUpdate(
-          id,
-          { isRead: true },
-          { new: true }
-        )
+        .findByIdAndUpdate(id, { isRead: true }, { new: true })
         .exec();
 
       if (!notification) {
@@ -196,14 +214,19 @@ export class NotificationService {
       }
       return notification;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new BadRequestException('Failed to mark notification as read');
     }
   }
 
-  async markAllAsReadForUser(userId: string): Promise<{ modifiedCount: number }> {
+  async markAllAsReadForUser(
+    userId: string,
+  ): Promise<{ modifiedCount: number }> {
     try {
       if (!Types.ObjectId.isValid(userId)) {
         throw new BadRequestException('Invalid user ID format');
@@ -212,7 +235,7 @@ export class NotificationService {
       const result = await this.notificationModel
         .updateMany(
           { userId: new Types.ObjectId(userId), isRead: false },
-          { isRead: true }
+          { isRead: true },
         )
         .exec();
 
@@ -240,7 +263,10 @@ export class NotificationService {
       }
       return notification;
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new BadRequestException('Failed to update notification');
@@ -259,7 +285,10 @@ export class NotificationService {
       }
       return { message: 'Notification deleted successfully' };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new BadRequestException('Failed to delete notification');
@@ -286,7 +315,9 @@ export class NotificationService {
   }
 
   // Admin-only methods
-  async broadcastNotification(dto: BroadcastNotificationDto): Promise<{ createdCount: number }> {
+  async broadcastNotification(
+    dto: BroadcastNotificationDto,
+  ): Promise<{ createdCount: number }> {
     try {
       let targetUserIds: Types.ObjectId[] = [];
 
@@ -300,15 +331,19 @@ export class NotificationService {
         }
       } else {
         // Broadcast to all users - get all user IDs from User collection
-        const allUsers = await this.userModel.find({ status: { $ne: 'deleted' } }, '_id').exec();
-        targetUserIds = allUsers.map(user => user._id as Types.ObjectId);
-        
+        const allUsers = await this.userModel
+          .find({ status: { $ne: 'deleted' } }, '_id')
+          .exec();
+        targetUserIds = allUsers.map((user) => user._id);
+
         if (targetUserIds.length === 0) {
-          throw new BadRequestException('No active users found for broadcasting');
+          throw new BadRequestException(
+            'No active users found for broadcasting',
+          );
         }
       }
 
-      const notifications = targetUserIds.map(userId => ({
+      const notifications = targetUserIds.map((userId) => ({
         userId,
         title: dto.title,
         content: dto.content,
@@ -322,15 +357,18 @@ export class NotificationService {
       // Send real-time notifications to all target users
       if (this.notificationGateway) {
         for (const savedNotification of result) {
-          await this.notificationGateway.sendNotificationToUser(savedNotification.userId.toString(), {
-            _id: savedNotification._id,
-            title: savedNotification.title,
-            content: savedNotification.content,
-            type: savedNotification.type,
-            data: savedNotification.data,
-            isRead: savedNotification.isRead,
-            createdAt: (savedNotification as any).createdAt,
-          });
+          await this.notificationGateway.sendNotificationToUser(
+            savedNotification.userId.toString(),
+            {
+              _id: savedNotification._id,
+              title: savedNotification.title,
+              content: savedNotification.content,
+              type: savedNotification.type,
+              data: savedNotification.data,
+              isRead: savedNotification.isRead,
+              createdAt: (savedNotification as any).createdAt,
+            },
+          );
         }
       }
 
@@ -343,16 +381,22 @@ export class NotificationService {
     }
   }
 
-  async createSystemNotification(dto: SystemNotificationDto): Promise<{ message: string, totalUsers: number }> {
+  async createSystemNotification(
+    dto: SystemNotificationDto,
+  ): Promise<{ message: string; totalUsers: number }> {
     try {
       // Get all active users
-      const allUsers = await this.userModel.find({ status: { $ne: 'deleted' } }, '_id').exec();
-      
+      const allUsers = await this.userModel
+        .find({ status: { $ne: 'deleted' } }, '_id')
+        .exec();
+
       if (allUsers.length === 0) {
-        throw new BadRequestException('No active users found for system notification');
+        throw new BadRequestException(
+          'No active users found for system notification',
+        );
       }
 
-      const notifications = allUsers.map(user => ({
+      const notifications = allUsers.map((user) => ({
         userId: user._id,
         title: dto.title,
         content: dto.content,
@@ -362,7 +406,7 @@ export class NotificationService {
       }));
 
       const result = await this.notificationModel.insertMany(notifications);
-      
+
       // Send real-time system notification to all users
       if (this.notificationGateway) {
         const systemNotificationData = {
@@ -373,12 +417,14 @@ export class NotificationService {
           isRead: false,
           createdAt: new Date(),
         };
-        await this.notificationGateway.broadcastNotification(systemNotificationData);
+        await this.notificationGateway.broadcastNotification(
+          systemNotificationData,
+        );
       }
-      
-      return { 
+
+      return {
         message: 'System notification sent successfully',
-        totalUsers: result.length 
+        totalUsers: result.length,
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
@@ -389,12 +435,16 @@ export class NotificationService {
   }
 
   async findAllWithFilters(
-    page: number = 1, 
+    page: number = 1,
     limit: number = 10,
     userId?: string,
     type?: string,
-    isRead?: boolean
-  ): Promise<{ notifications: Notification[], total: number, totalPages: number }> {
+    isRead?: boolean,
+  ): Promise<{
+    notifications: Notification[];
+    total: number;
+    totalPages: number;
+  }> {
     try {
       const skip = (page - 1) * limit;
       const filter: any = {};
@@ -422,26 +472,28 @@ export class NotificationService {
           .skip(skip)
           .limit(limit)
           .exec(),
-        this.notificationModel.countDocuments(filter)
+        this.notificationModel.countDocuments(filter),
       ]);
 
       return {
         notifications,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / limit),
       };
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new BadRequestException('Failed to fetch notifications with filters');
+      throw new BadRequestException(
+        'Failed to fetch notifications with filters',
+      );
     }
   }
 
   async getNotificationStats(): Promise<{
-    total: number,
-    unread: number,
-    byType: { type: string, count: number }[]
+    total: number;
+    unread: number;
+    byType: { type: string; count: number }[];
   }> {
     try {
       const [total, unread, byType] = await Promise.all([
@@ -450,14 +502,14 @@ export class NotificationService {
         this.notificationModel.aggregate([
           { $group: { _id: '$type', count: { $sum: 1 } } },
           { $project: { type: '$_id', count: 1, _id: 0 } },
-          { $sort: { count: -1 } }
-        ])
+          { $sort: { count: -1 } },
+        ]),
       ]);
 
       return {
         total,
         unread,
-        byType
+        byType,
       };
     } catch (error) {
       throw new BadRequestException('Failed to get notification statistics');
@@ -465,15 +517,21 @@ export class NotificationService {
   }
 
   // User permission checking methods
-  async verifyNotificationOwnership(notificationId: string, userId: string): Promise<boolean> {
+  async verifyNotificationOwnership(
+    notificationId: string,
+    userId: string,
+  ): Promise<boolean> {
     try {
-      if (!Types.ObjectId.isValid(notificationId) || !Types.ObjectId.isValid(userId)) {
+      if (
+        !Types.ObjectId.isValid(notificationId) ||
+        !Types.ObjectId.isValid(userId)
+      ) {
         return false;
       }
 
       const notification = await this.notificationModel.findOne({
         _id: new Types.ObjectId(notificationId),
-        userId: new Types.ObjectId(userId)
+        userId: new Types.ObjectId(userId),
       });
 
       return notification !== null;

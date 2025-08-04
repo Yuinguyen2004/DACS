@@ -9,7 +9,10 @@ import { Model, Types } from 'mongoose';
 import { Leaderboard, LeaderboardDocument } from './leaderboard.schema';
 import { CreateLeaderboardDto } from './dto/create-leaderboard.dto';
 import { UpdateLeaderboardDto } from './dto/update-leaderboard.dto';
-import { LeaderboardEntryDto, QuizLeaderboardDto } from './dto/leaderboard-response.dto';
+import {
+  LeaderboardEntryDto,
+  QuizLeaderboardDto,
+} from './dto/leaderboard-response.dto';
 import { User } from '../users/user.schema';
 import { Quiz } from '../quizzes/quiz.schema';
 import { AuditLogService } from './audit-log.service';
@@ -21,7 +24,8 @@ import { AuditLogService } from './audit-log.service';
 @Injectable()
 export class LeaderboardService {
   constructor(
-    @InjectModel(Leaderboard.name) private leaderboardModel: Model<LeaderboardDocument>,
+    @InjectModel(Leaderboard.name)
+    private leaderboardModel: Model<LeaderboardDocument>,
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Quiz.name) private quizModel: Model<Quiz>,
     private auditLogService: AuditLogService,
@@ -30,7 +34,9 @@ export class LeaderboardService {
   /**
    * Tạo mới một entry leaderboard
    */
-  async create(createLeaderboardDto: CreateLeaderboardDto): Promise<LeaderboardDocument> {
+  async create(
+    createLeaderboardDto: CreateLeaderboardDto,
+  ): Promise<LeaderboardDocument> {
     try {
       // Validate ObjectIds
       if (!Types.ObjectId.isValid(createLeaderboardDto.quizId)) {
@@ -49,7 +55,9 @@ export class LeaderboardService {
       });
 
       if (existingEntry) {
-        throw new BadRequestException('Leaderboard entry already exists for this attempt');
+        throw new BadRequestException(
+          'Leaderboard entry already exists for this attempt',
+        );
       }
 
       const leaderboard = new this.leaderboardModel({
@@ -60,28 +68,35 @@ export class LeaderboardService {
       });
 
       const savedLeaderboard = await leaderboard.save();
-      
+
       // Recalculate ranks for this quiz
       await this.recalculateRanks(createLeaderboardDto.quizId);
-      
+
       return savedLeaderboard;
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to create leaderboard entry');
+      throw new InternalServerErrorException(
+        'Failed to create leaderboard entry',
+      );
     }
   }
 
   /**
    * Tạo hoặc cập nhật leaderboard entry (chỉ giữ lại score cao nhất)
-   * Logic: 
+   * Logic:
    * 1. Tìm entry hiện tại của user trong quiz này
    * 2. Nếu chưa có entry -> tạo mới
    * 3. Nếu có entry và score mới cao hơn -> cập nhật
    * 4. Nếu có entry nhưng score mới thấp hơn -> bỏ qua
    */
-  async createOrUpdateBestScore(createLeaderboardDto: CreateLeaderboardDto): Promise<{ action: 'created' | 'updated' | 'skipped'; entry: LeaderboardDocument | null }> {
+  async createOrUpdateBestScore(
+    createLeaderboardDto: CreateLeaderboardDto,
+  ): Promise<{
+    action: 'created' | 'updated' | 'skipped';
+    entry: LeaderboardDocument | null;
+  }> {
     try {
       // Validate ObjectIds
       if (!Types.ObjectId.isValid(createLeaderboardDto.quizId)) {
@@ -110,10 +125,10 @@ export class LeaderboardService {
         });
 
         const savedLeaderboard = await leaderboard.save();
-        
+
         // Recalculate ranks for this quiz
         await this.recalculateRanks(createLeaderboardDto.quizId);
-        
+
         return { action: 'created', entry: savedLeaderboard };
       }
 
@@ -125,44 +140,56 @@ export class LeaderboardService {
         // Score mới cao hơn -> cập nhật
         existingEntry.score = newScore;
         existingEntry.timeSpent = createLeaderboardDto.timeSpent || 0;
-        existingEntry.attemptId = new Types.ObjectId(createLeaderboardDto.attemptId);
-        
+        existingEntry.attemptId = new Types.ObjectId(
+          createLeaderboardDto.attemptId,
+        );
+
         const updatedEntry = await existingEntry.save();
-        
+
         // Recalculate ranks for this quiz
         await this.recalculateRanks(createLeaderboardDto.quizId);
-        
+
         return { action: 'updated', entry: updatedEntry };
-      } else if (newScore === currentScore && createLeaderboardDto.timeSpent && existingEntry.timeSpent) {
+      } else if (
+        newScore === currentScore &&
+        createLeaderboardDto.timeSpent &&
+        existingEntry.timeSpent
+      ) {
         // Score bằng nhau -> so sánh thời gian (thời gian ít hơn thì tốt hơn)
         if (createLeaderboardDto.timeSpent < existingEntry.timeSpent) {
           existingEntry.timeSpent = createLeaderboardDto.timeSpent || 0;
-          existingEntry.attemptId = new Types.ObjectId(createLeaderboardDto.attemptId);
-          
+          existingEntry.attemptId = new Types.ObjectId(
+            createLeaderboardDto.attemptId,
+          );
+
           const updatedEntry = await existingEntry.save();
-          
+
           // Recalculate ranks for this quiz
           await this.recalculateRanks(createLeaderboardDto.quizId);
-          
+
           return { action: 'updated', entry: updatedEntry };
         }
       }
 
       // Score mới thấp hơn hoặc không tốt hơn -> bỏ qua
       return { action: 'skipped', entry: existingEntry };
-
     } catch (error) {
       if (error instanceof BadRequestException) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to create or update leaderboard entry');
+      throw new InternalServerErrorException(
+        'Failed to create or update leaderboard entry',
+      );
     }
   }
 
   /**
    * Lấy leaderboard cho một quiz cụ thể
    */
-  async getQuizLeaderboard(quizId: string, limit: number = 50): Promise<QuizLeaderboardDto> {
+  async getQuizLeaderboard(
+    quizId: string,
+    limit: number = 50,
+  ): Promise<QuizLeaderboardDto> {
     try {
       if (!Types.ObjectId.isValid(quizId)) {
         throw new BadRequestException('Invalid quiz ID');
@@ -187,14 +214,16 @@ export class LeaderboardService {
         quizId: new Types.ObjectId(quizId),
       });
 
-      const leaderboardEntries: LeaderboardEntryDto[] = entries.map(entry => ({
-        rank: entry.rank,
-        userId: entry.userId._id.toString(),
-        username: (entry.userId as any).username,
-        score: entry.score,
-        timeSpent: entry.timeSpent,
-        completedAt: (entry as any).createdAt,
-      }));
+      const leaderboardEntries: LeaderboardEntryDto[] = entries.map(
+        (entry) => ({
+          rank: entry.rank,
+          userId: entry.userId._id.toString(),
+          username: (entry.userId as any).username,
+          score: entry.score,
+          timeSpent: entry.timeSpent,
+          completedAt: (entry as any).createdAt,
+        }),
+      );
 
       return {
         quizId,
@@ -203,7 +232,10 @@ export class LeaderboardService {
         totalParticipants,
       };
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to get quiz leaderboard');
@@ -213,7 +245,14 @@ export class LeaderboardService {
   /**
    * Lấy ranking của một user cụ thể trong một quiz
    */
-  async getUserRankInQuiz(quizId: string, userId: string): Promise<{ rank: number; totalParticipants: number; score: number } | null> {
+  async getUserRankInQuiz(
+    quizId: string,
+    userId: string,
+  ): Promise<{
+    rank: number;
+    totalParticipants: number;
+    score: number;
+  } | null> {
     try {
       if (!Types.ObjectId.isValid(quizId) || !Types.ObjectId.isValid(userId)) {
         throw new BadRequestException('Invalid quiz ID or user ID');
@@ -248,7 +287,10 @@ export class LeaderboardService {
   /**
    * Cập nhật entry leaderboard (admin only với audit logging)
    */
-  async update(id: string, updateLeaderboardDto: UpdateLeaderboardDto): Promise<LeaderboardDocument> {
+  async update(
+    id: string,
+    updateLeaderboardDto: UpdateLeaderboardDto,
+  ): Promise<LeaderboardDocument> {
     try {
       if (!Types.ObjectId.isValid(id)) {
         throw new BadRequestException('Invalid leaderboard ID');
@@ -257,7 +299,7 @@ export class LeaderboardService {
       const updatedLeaderboard = await this.leaderboardModel.findByIdAndUpdate(
         id,
         updateLeaderboardDto,
-        { new: true }
+        { new: true },
       );
 
       if (!updatedLeaderboard) {
@@ -265,16 +307,24 @@ export class LeaderboardService {
       }
 
       // Recalculate ranks if score was updated
-      if ('score' in updateLeaderboardDto && updateLeaderboardDto.score !== undefined) {
+      if (
+        'score' in updateLeaderboardDto &&
+        updateLeaderboardDto.score !== undefined
+      ) {
         await this.recalculateRanks(updatedLeaderboard.quizId.toString());
       }
 
       return updatedLeaderboard;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to update leaderboard entry');
+      throw new InternalServerErrorException(
+        'Failed to update leaderboard entry',
+      );
     }
   }
 
@@ -282,12 +332,12 @@ export class LeaderboardService {
    * Cập nhật entry leaderboard với audit logging (admin only)
    */
   async adminUpdate(
-    id: string, 
+    id: string,
     updateLeaderboardDto: UpdateLeaderboardDto,
     adminId: string,
     adminEmail: string,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<LeaderboardDocument> {
     try {
       if (!Types.ObjectId.isValid(id)) {
@@ -303,7 +353,7 @@ export class LeaderboardService {
       const updatedLeaderboard = await this.leaderboardModel.findByIdAndUpdate(
         id,
         updateLeaderboardDto,
-        { new: true }
+        { new: true },
       );
 
       if (!updatedLeaderboard) {
@@ -318,20 +368,28 @@ export class LeaderboardService {
         oldEntry.toObject(),
         updatedLeaderboard.toObject(),
         ipAddress,
-        userAgent
+        userAgent,
       );
 
       // Recalculate ranks if score was updated
-      if ('score' in updateLeaderboardDto && updateLeaderboardDto.score !== undefined) {
+      if (
+        'score' in updateLeaderboardDto &&
+        updateLeaderboardDto.score !== undefined
+      ) {
         await this.recalculateRanks(updatedLeaderboard.quizId.toString());
       }
 
       return updatedLeaderboard;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to update leaderboard entry');
+      throw new InternalServerErrorException(
+        'Failed to update leaderboard entry',
+      );
     }
   }
 
@@ -355,10 +413,15 @@ export class LeaderboardService {
       // Recalculate ranks after deletion
       await this.recalculateRanks(quizId);
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to remove leaderboard entry');
+      throw new InternalServerErrorException(
+        'Failed to remove leaderboard entry',
+      );
     }
   }
 
@@ -370,7 +433,7 @@ export class LeaderboardService {
     adminId: string,
     adminEmail: string,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
   ): Promise<void> {
     try {
       if (!Types.ObjectId.isValid(id)) {
@@ -384,7 +447,7 @@ export class LeaderboardService {
 
       const quizId = leaderboard.quizId.toString();
       const deletedData = leaderboard.toObject();
-      
+
       await this.leaderboardModel.findByIdAndDelete(id);
 
       // Log admin action
@@ -394,16 +457,21 @@ export class LeaderboardService {
         id,
         deletedData,
         ipAddress,
-        userAgent
+        userAgent,
       );
 
       // Recalculate ranks after deletion
       await this.recalculateRanks(quizId);
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
-      throw new InternalServerErrorException('Failed to remove leaderboard entry');
+      throw new InternalServerErrorException(
+        'Failed to remove leaderboard entry',
+      );
     }
   }
 
@@ -447,7 +515,9 @@ export class LeaderboardService {
         .sort({ createdAt: -1 })
         .exec();
     } catch (error) {
-      throw new InternalServerErrorException('Failed to get leaderboard entries');
+      throw new InternalServerErrorException(
+        'Failed to get leaderboard entries',
+      );
     }
   }
 
@@ -472,7 +542,10 @@ export class LeaderboardService {
 
       return leaderboard;
     } catch (error) {
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to get leaderboard entry');

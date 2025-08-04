@@ -242,7 +242,9 @@ export class QuizService {
     // Kiểm tra API key
     const API_KEY = process.env.GEMINI_API_KEY;
     if (!API_KEY) {
-      throw new InternalServerErrorException('GEMINI_API_KEY environment variable is not set');
+      throw new InternalServerErrorException(
+        'GEMINI_API_KEY environment variable is not set',
+      );
     }
 
     // Khởi tạo Gemini AI client
@@ -303,7 +305,9 @@ ${rawText}
 
       // Kiểm tra cơ bản: đảm bảo response có cấu trúc đúng
       if (!parsedJson.questions || !Array.isArray(parsedJson.questions)) {
-        throw new BadRequestException('API response không có mảng questions hợp lệ.');
+        throw new BadRequestException(
+          'API response không có mảng questions hợp lệ.',
+        );
       }
 
       // Validate each question structure
@@ -316,7 +320,9 @@ ${rawText}
           !Array.isArray(question.options) ||
           question.options.length < 2
         ) {
-          throw new BadRequestException(`Cấu trúc câu hỏi ${index + 1} không hợp lệ từ AI response.`);
+          throw new BadRequestException(
+            `Cấu trúc câu hỏi ${index + 1} không hợp lệ từ AI response.`,
+          );
         }
 
         if (!['mcq', 'true_false'].includes(question.questionType)) {
@@ -326,14 +332,21 @@ ${rawText}
         }
 
         // Validate correct answer exists in options
-        if (!question.correctAnswer || !question.options.includes(question.correctAnswer)) {
+        if (
+          !question.correctAnswer ||
+          !question.options.includes(question.correctAnswer)
+        ) {
           throw new BadRequestException(
             `Đáp án đúng của câu ${index + 1} không có trong danh sách lựa chọn.`,
           );
         }
 
         // Validate question number
-        if (question.questionNumber && (typeof question.questionNumber !== 'number' || question.questionNumber < 1)) {
+        if (
+          question.questionNumber &&
+          (typeof question.questionNumber !== 'number' ||
+            question.questionNumber < 1)
+        ) {
           question.questionNumber = index + 1; // Auto-fix invalid question numbers
         }
       }

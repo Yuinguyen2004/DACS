@@ -49,7 +49,7 @@ export class NotificationGateway
     try {
       // Extract token from query parameters or headers
       const token = client.handshake.auth.token || client.handshake.query.token;
-      
+
       if (!token) {
         this.logger.error(`Client ${client.id} connected without token`);
         client.disconnect();
@@ -58,7 +58,7 @@ export class NotificationGateway
 
       // Verify JWT token
       const payload = this.jwtService.verify(token.replace('Bearer ', ''));
-      
+
       if (!payload.sub || !payload.email) {
         this.logger.error(`Invalid token payload for client ${client.id}`);
         client.disconnect();
@@ -82,15 +82,20 @@ export class NotificationGateway
           client.join('admin_room');
         }
 
-        this.logger.log(`User ${client.userEmail} (${client.userId}) connected with socket ${client.id}`);
+        this.logger.log(
+          `User ${client.userEmail} (${client.userId}) connected with socket ${client.id}`,
+        );
 
         // Send initial unread count
-        const unreadCount = await this.notificationService.getUnreadCount(client.userId);
+        const unreadCount = await this.notificationService.getUnreadCount(
+          client.userId,
+        );
         client.emit('unread_count', { count: unreadCount });
       }
-
     } catch (error) {
-      this.logger.error(`Authentication failed for client ${client.id}: ${error.message}`);
+      this.logger.error(
+        `Authentication failed for client ${client.id}: ${error.message}`,
+      );
       client.disconnect();
     }
   }
@@ -98,7 +103,9 @@ export class NotificationGateway
   handleDisconnect(client: AuthenticatedSocket) {
     if (client.userId) {
       this.connectedUsers.delete(client.userId);
-      this.logger.log(`User ${client.userEmail} (${client.userId}) disconnected`);
+      this.logger.log(
+        `User ${client.userEmail} (${client.userId}) disconnected`,
+      );
     }
   }
 
@@ -107,11 +114,13 @@ export class NotificationGateway
     const socketId = this.connectedUsers.get(userId);
     if (socketId) {
       this.server.to(`user_${userId}`).emit('new_notification', notification);
-      
+
       // Update unread count
       const unreadCount = await this.notificationService.getUnreadCount(userId);
-      this.server.to(`user_${userId}`).emit('unread_count', { count: unreadCount });
-      
+      this.server
+        .to(`user_${userId}`)
+        .emit('unread_count', { count: unreadCount });
+
       this.logger.log(`Notification sent to user ${userId}`);
       return true;
     }
@@ -126,12 +135,17 @@ export class NotificationGateway
     // Update unread counts for all connected users
     for (const [userId, socketId] of this.connectedUsers.entries()) {
       if (excludeUserId && userId === excludeUserId) continue;
-      
+
       try {
-        const unreadCount = await this.notificationService.getUnreadCount(userId);
-        this.server.to(`user_${userId}`).emit('unread_count', { count: unreadCount });
+        const unreadCount =
+          await this.notificationService.getUnreadCount(userId);
+        this.server
+          .to(`user_${userId}`)
+          .emit('unread_count', { count: unreadCount });
       } catch (error) {
-        this.logger.error(`Failed to update unread count for user ${userId}: ${error.message}`);
+        this.logger.error(
+          `Failed to update unread count for user ${userId}: ${error.message}`,
+        );
       }
     }
   }
@@ -146,7 +160,7 @@ export class NotificationGateway
   @SubscribeMessage('get_my_notifications')
   async handleGetMyNotifications(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { page?: number; limit?: number }
+    @MessageBody() data: { page?: number; limit?: number },
   ) {
     if (!client.userId) {
       client.emit('error', { message: 'Unauthorized' });
@@ -157,12 +171,14 @@ export class NotificationGateway
       const result = await this.notificationService.findByUserId(
         client.userId,
         data.page || 1,
-        data.limit || 10
+        data.limit || 10,
       );
       client.emit('my_notifications', result);
     } catch (error) {
       client.emit('error', { message: 'Failed to fetch notifications' });
-      this.logger.error(`Failed to fetch notifications for user ${client.userId}: ${error.message}`);
+      this.logger.error(
+        `Failed to fetch notifications for user ${client.userId}: ${error.message}`,
+      );
     }
   }
 
@@ -170,7 +186,7 @@ export class NotificationGateway
   @SubscribeMessage('mark_as_read')
   async handleMarkAsRead(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() data: { notificationId: string }
+    @MessageBody() data: { notificationId: string },
   ) {
     if (!client.userId) {
       client.emit('error', { message: 'Unauthorized' });
@@ -179,10 +195,11 @@ export class NotificationGateway
 
     try {
       // Verify ownership
-      const isOwner = await this.notificationService.verifyNotificationOwnership(
-        data.notificationId,
-        client.userId
-      );
+      const isOwner =
+        await this.notificationService.verifyNotificationOwnership(
+          data.notificationId,
+          client.userId,
+        );
 
       if (!isOwner && client.userRole !== 'admin') {
         client.emit('error', { message: 'Access denied' });
@@ -190,15 +207,18 @@ export class NotificationGateway
       }
 
       await this.notificationService.markAsRead(data.notificationId);
-      
+
       // Send updated unread count
-      const unreadCount = await this.notificationService.getUnreadCount(client.userId);
+      const unreadCount = await this.notificationService.getUnreadCount(
+        client.userId,
+      );
       client.emit('unread_count', { count: unreadCount });
       client.emit('notification_read', { notificationId: data.notificationId });
-
     } catch (error) {
       client.emit('error', { message: 'Failed to mark notification as read' });
-      this.logger.error(`Failed to mark notification as read: ${error.message}`);
+      this.logger.error(
+        `Failed to mark notification as read: ${error.message}`,
+      );
     }
   }
 
@@ -211,18 +231,28 @@ export class NotificationGateway
     }
 
     try {
-      const result = await this.notificationService.markAllAsReadForUser(client.userId);
-      client.emit('all_notifications_read', { modifiedCount: result.modifiedCount });
+      const result = await this.notificationService.markAllAsReadForUser(
+        client.userId,
+      );
+      client.emit('all_notifications_read', {
+        modifiedCount: result.modifiedCount,
+      });
       client.emit('unread_count', { count: 0 });
     } catch (error) {
-      client.emit('error', { message: 'Failed to mark all notifications as read' });
-      this.logger.error(`Failed to mark all notifications as read: ${error.message}`);
+      client.emit('error', {
+        message: 'Failed to mark all notifications as read',
+      });
+      this.logger.error(
+        `Failed to mark all notifications as read: ${error.message}`,
+      );
     }
   }
 
   // Get connected users count (admin only)
   @SubscribeMessage('get_connected_users')
-  async handleGetConnectedUsers(@ConnectedSocket() client: AuthenticatedSocket) {
+  async handleGetConnectedUsers(
+    @ConnectedSocket() client: AuthenticatedSocket,
+  ) {
     if (client.userRole !== 'admin') {
       client.emit('error', { message: 'Admin access required' });
       return;
@@ -230,10 +260,10 @@ export class NotificationGateway
 
     const connectedCount = this.connectedUsers.size;
     const connectedUserIds = Array.from(this.connectedUsers.keys());
-    
+
     client.emit('connected_users', {
       count: connectedCount,
-      userIds: connectedUserIds
+      userIds: connectedUserIds,
     });
   }
 }
