@@ -321,7 +321,7 @@ export default function QuizHistory() {
                             className="h-8 px-3 text-orange-600 border-orange-200 hover:bg-orange-50 bg-transparent"
                           >
                             <Eye className="w-3 h-3 mr-1" />
-                            View Details
+                            Xem chi tiết
                           </Button>
                         </TableCell>
                       </TableRow>
