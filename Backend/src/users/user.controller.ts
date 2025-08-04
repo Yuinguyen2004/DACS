@@ -3,11 +3,13 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   UsePipes,
   ValidationPipe,
   Param,
   NotFoundException,
+  BadRequestException,
   Patch,
   UseGuards,
   Req,
@@ -17,6 +19,8 @@ import { CreateUserDto } from './dto/user-dto/create-user.dto';
 import { UpdateUserDto } from './dto/user-dto/update-user.dto';
 import { ChangePasswordDto } from './dto/user-dto/change-user.dto';
 import { AuthGuard } from '@nestjs/passport';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Request } from 'express';
 
 @Controller('users')
 export class UsersController {
@@ -60,5 +64,38 @@ export class UsersController {
       throw new NotFoundException('You can only change your own password');
     }
     return this.usersService.changePassword(id, dto);
+  }
+
+  @Delete('cancel-subscription')
+  @UseGuards(JwtAuthGuard)
+  async cancelSubscription(
+    @Req() request: Request & { 
+      user: { userId: string; email: string; role: string } 
+    }
+  ) {
+    try {
+      const userId = request.user.userId;
+      
+      const updatedUser = await this.usersService.cancelSubscription(userId);
+      
+      return {
+        success: true,
+        message: 'Subscription cancelled successfully',
+        user: {
+          id: updatedUser._id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          package_id: updatedUser.package_id,
+          status: updatedUser.status,
+          subscriptionType: updatedUser.subscriptionType,
+          subscriptionEndDate: updatedUser.subscriptionEndDate,
+        }
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to cancel subscription');
+    }
   }
 }

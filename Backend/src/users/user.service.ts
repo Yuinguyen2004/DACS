@@ -98,4 +98,40 @@ export class UsersService {
 
     return user;
   }
+
+  async cancelSubscription(userId: string) {
+    const user = await this.userModel.findById(userId);
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Chỉ cho phép hủy subscription nếu user đang có subscription active
+    if (!user.package_id || user.package_id.toString() === 'guest' || user.status !== 'active') {
+      throw new BadRequestException('No active subscription to cancel');
+    }
+
+    // Reset về package guest và xóa hoàn toàn các thông tin subscription
+    const updateData = {
+      package_id: 'guest',
+      $unset: {
+        subscriptionType: 1,
+        subscriptionStartDate: 1,
+        subscriptionEndDate: 1,
+      },
+      status: 'inactive',
+    };
+
+    const updatedUser = await this.userModel.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    return updatedUser;
+  }
 }
