@@ -13,7 +13,11 @@ import {
 } from '@nestjs/common';
 import { PaymentService } from './payment.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PaymentStatus, PaymentMethod, PaymentDocument } from './payment.schema';
+import {
+  PaymentStatus,
+  PaymentMethod,
+  PaymentDocument,
+} from './payment.schema';
 import { Request } from 'express';
 
 @Controller('api/v1/payments')
@@ -117,7 +121,8 @@ export class PaymentController {
       this.logger.log(`Capturing PayPal order ${orderId}`);
 
       // Bắt đơn hàng PayPal
-      const capturedOrder = await this.paymentService.capturePayPalOrder(orderId);
+      const capturedOrder =
+        await this.paymentService.capturePayPalOrder(orderId);
 
       // Tìm thanh toán trong database theo PayPal order ID
       const payment = await this.paymentService.findByPayPalOrderId(orderId);
@@ -127,8 +132,9 @@ export class PaymentController {
 
       // Cập nhật trạng thái thanh toán dựa trên kết quả bắt
       if (capturedOrder.status === 'COMPLETED') {
-        const captureId = capturedOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-        
+        const captureId =
+          capturedOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+
         await this.paymentService.updatePaymentWithPayPal(
           (payment._id as any).toString(),
           orderId,
@@ -170,7 +176,7 @@ export class PaymentController {
 
     try {
       const orderId = query.token; // PayPal sends order ID as token
-      
+
       // Tìm thanh toán trong database
       const payment = await this.paymentService.findByPayPalOrderId(orderId);
       if (!payment) {
@@ -206,12 +212,14 @@ export class PaymentController {
   }
 
   @Get('paypal/return-url/success')
-  async handlePayPalSuccess(@Query() query: { token: string; PayerID: string }) {
+  async handlePayPalSuccess(
+    @Query() query: { token: string; PayerID: string },
+  ) {
     this.logger.log('PayPal payment success return:', JSON.stringify(query));
 
     try {
       const { token: orderId, PayerID: payerId } = query;
-      
+
       // Tìm thanh toán trong database
       const payment = await this.paymentService.findByPayPalOrderId(orderId);
       if (!payment) {
@@ -223,12 +231,14 @@ export class PaymentController {
       }
 
       // Bắt đơn hàng PayPal
-      const capturedOrder = await this.paymentService.capturePayPalOrder(orderId);
+      const capturedOrder =
+        await this.paymentService.capturePayPalOrder(orderId);
 
       // Cập nhật trạng thái thanh toán dựa trên kết quả bắt
       if (capturedOrder.status === 'COMPLETED') {
-        const captureId = capturedOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-        
+        const captureId =
+          capturedOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+
         await this.paymentService.updatePaymentWithPayPal(
           (payment._id as any).toString(),
           orderId,
@@ -236,7 +246,9 @@ export class PaymentController {
           PaymentStatus.SUCCESS,
         );
 
-        this.logger.log(`PayPal payment ${payment._id} succeeded via return URL`);
+        this.logger.log(
+          `PayPal payment ${payment._id} succeeded via return URL`,
+        );
 
         return {
           success: true,
@@ -272,11 +284,14 @@ export class PaymentController {
 
   @Get('paypal/return-url/cancel')
   async handlePayPalReturnCancel(@Query() query: { token: string }) {
-    this.logger.log('PayPal payment cancelled via return URL:', JSON.stringify(query));
+    this.logger.log(
+      'PayPal payment cancelled via return URL:',
+      JSON.stringify(query),
+    );
 
     try {
       const orderId = query.token;
-      
+
       // Tìm thanh toán trong database
       const payment = await this.paymentService.findByPayPalOrderId(orderId);
       if (!payment) {
@@ -354,7 +369,7 @@ export class PaymentController {
   private async handlePayPalOrderApproved(resource: any) {
     const orderId = resource.id;
     const payment = await this.paymentService.findByPayPalOrderId(orderId);
-    
+
     if (payment && payment.status === PaymentStatus.PENDING) {
       this.logger.log(`PayPal order ${orderId} approved via webhook`);
       // Note: We don't update status here, wait for capture completion
@@ -362,7 +377,7 @@ export class PaymentController {
   }
 
   private async handlePayPalCaptureCompleted(resource: any) {
-    // Lấy order ID từ capture resource 
+    // Lấy order ID từ capture resource
     const orderId = resource.supplementary_data?.related_ids?.order_id;
     if (!orderId) {
       this.logger.error('No order ID found in capture completed webhook');
@@ -370,7 +385,7 @@ export class PaymentController {
     }
 
     const payment = await this.paymentService.findByPayPalOrderId(orderId);
-    
+
     if (payment && payment.status !== PaymentStatus.SUCCESS) {
       await this.paymentService.updatePaymentWithPayPal(
         (payment._id as any).toString(),
@@ -378,7 +393,9 @@ export class PaymentController {
         resource.id,
         PaymentStatus.SUCCESS,
       );
-      this.logger.log(`PayPal payment ${payment._id} marked as completed via webhook`);
+      this.logger.log(
+        `PayPal payment ${payment._id} marked as completed via webhook`,
+      );
     }
   }
 
@@ -390,7 +407,7 @@ export class PaymentController {
     }
 
     const payment = await this.paymentService.findByPayPalOrderId(orderId);
-    
+
     if (payment && payment.status === PaymentStatus.PENDING) {
       await this.paymentService.updatePaymentWithPayPal(
         (payment._id as any).toString(),
@@ -398,14 +415,16 @@ export class PaymentController {
         resource.id,
         PaymentStatus.FAILED,
       );
-      this.logger.log(`PayPal payment ${payment._id} marked as failed via webhook`);
+      this.logger.log(
+        `PayPal payment ${payment._id} marked as failed via webhook`,
+      );
     }
   }
 
   private async handlePayPalPaymentCompleted(resource: any) {
     const paymentId = resource.parent_payment;
     const payment = await this.paymentService.findByPayPalPaymentId(paymentId);
-    
+
     if (payment && payment.status !== PaymentStatus.SUCCESS) {
       await this.paymentService.updatePaymentStatus(
         (payment._id as any).toString(),
@@ -413,14 +432,16 @@ export class PaymentController {
         resource.id,
         'completed',
       );
-      this.logger.log(`PayPal payment ${payment._id} marked as completed via webhook`);
+      this.logger.log(
+        `PayPal payment ${payment._id} marked as completed via webhook`,
+      );
     }
   }
 
   private async handlePayPalPaymentFailed(resource: any) {
     const paymentId = resource.parent_payment;
     const payment = await this.paymentService.findByPayPalPaymentId(paymentId);
-    
+
     if (payment && payment.status === PaymentStatus.PENDING) {
       await this.paymentService.updatePaymentStatus(
         (payment._id as any).toString(),
@@ -428,7 +449,9 @@ export class PaymentController {
         resource.id,
         'failed',
       );
-      this.logger.log(`PayPal payment ${payment._id} marked as failed via webhook`);
+      this.logger.log(
+        `PayPal payment ${payment._id} marked as failed via webhook`,
+      );
     }
   }
 
@@ -551,9 +574,11 @@ export class PaymentController {
             vnpTransactionNo,
             vnpResponseCode,
           );
-          
-          this.logger.log(`Payment ${payment._id} updated to SUCCESS via return URL`);
-          
+
+          this.logger.log(
+            `Payment ${payment._id} updated to SUCCESS via return URL`,
+          );
+
           return {
             success: true,
             message: 'Payment successful',
@@ -569,9 +594,11 @@ export class PaymentController {
             vnpTransactionNo,
             vnpResponseCode,
           );
-          
-          this.logger.log(`Payment ${payment._id} updated to FAILED via return URL`);
-          
+
+          this.logger.log(
+            `Payment ${payment._id} updated to FAILED via return URL`,
+          );
+
           return {
             success: false,
             message: 'Payment failed',

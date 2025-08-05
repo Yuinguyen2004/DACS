@@ -33,6 +33,9 @@ export class User {
   @Prop({ default: 'inactive' })
   status: string;
 
+  @Prop({ required: false })
+  avatar?: string;
+
   // Subscription fields
   @Prop({ enum: SubscriptionType, required: false })
   subscriptionType?: SubscriptionType;

@@ -1,4 +1,10 @@
-import { IsNotEmpty, IsString, IsMongoId, IsOptional, IsEnum } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsMongoId,
+  IsOptional,
+  IsEnum,
+} from 'class-validator';
 import { PaymentMethod } from '../payment.schema';
 
 export class CreatePaymentUrlDto {

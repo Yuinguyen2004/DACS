@@ -21,6 +21,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'; // Thư viện Gemin
 interface IExtractedQuiz {
   title?: string;
   description?: string;
+  image?: string;
   time_limit?: number;
   questions: IExtractedQuestion[];
 }
@@ -192,6 +193,7 @@ export class QuizService {
     const quizMeta = {
       title: aiQuizObj.title || file.originalname.replace(/\.[^/.]+$/, ''),
       description: aiQuizObj.description || 'Quiz được tạo tự động từ file.',
+      image: aiQuizObj.image || null, // add image support
       time_limit: validatedTimeLimit,
       user_id: new Types.ObjectId(userId),
       is_premium: false,
@@ -255,6 +257,8 @@ export class QuizService {
 
     // Tạo prompt chi tiết cho AI
     const prompt = `
+    Bạn là một trợ lý AI chuyên xử lý tài liệu, có nhiệm vụ phân tích nội dung văn bản (được trích xuất từ file DOCX, PDF, hoặc văn bản thô) và chuyển đổi các câu hỏi trong đó thành một đối tượng JSON có cấu trúc chặt chẽ.
+    **Nhiệm vụ chính:**
 Dựa vào nội dung sau, hãy trích xuất thành object JSON với cấu trúc sau:
 {
   "title": "[Tiêu đề bài kiểm tra, nếu có]",

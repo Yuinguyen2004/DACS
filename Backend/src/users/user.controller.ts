@@ -69,15 +69,16 @@ export class UsersController {
   @Delete('cancel-subscription')
   @UseGuards(JwtAuthGuard)
   async cancelSubscription(
-    @Req() request: Request & { 
-      user: { userId: string; email: string; role: string } 
-    }
+    @Req()
+    request: Request & {
+      user: { userId: string; email: string; role: string };
+    },
   ) {
     try {
       const userId = request.user.userId;
-      
+
       const updatedUser = await this.usersService.cancelSubscription(userId);
-      
+
       return {
         success: true,
         message: 'Subscription cancelled successfully',
@@ -89,10 +90,13 @@ export class UsersController {
           status: updatedUser.status,
           subscriptionType: updatedUser.subscriptionType,
           subscriptionEndDate: updatedUser.subscriptionEndDate,
-        }
+        },
       };
     } catch (error) {
-      if (error instanceof NotFoundException || error instanceof BadRequestException) {
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
         throw error;
       }
       throw new BadRequestException('Failed to cancel subscription');

@@ -10,6 +10,9 @@ export class Quiz extends Document {
   @Prop()
   description: string;
 
+  @Prop({ required: false })
+  image?: string;
+
   @Prop({ type: Number, required: false })
   time_limit?: number; // đơn vị: phút hoặc giây (nên chọn 1 loại)
 

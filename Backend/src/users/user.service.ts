@@ -32,6 +32,7 @@ export class UsersService {
       role: 'user', // default role
       package_id: null, // reference to Packages collection, default to null until assigned
       status: 'inactive', // default status
+      avatar: dto.avatar, // add avatar support
     });
     await user.save();
     const { password_hash, ...userWithoutPassword } = user.toObject(); // khong tra ve mat khau
@@ -86,11 +87,9 @@ export class UsersService {
       updateData.subscriptionEndDate = subscriptionEndDate;
     }
 
-    const user = await this.userModel.findByIdAndUpdate(
-      userId,
-      updateData,
-      { new: true }
-    );
+    const user = await this.userModel.findByIdAndUpdate(userId, updateData, {
+      new: true,
+    });
 
     if (!user) {
       throw new NotFoundException('User not found');
@@ -101,13 +100,17 @@ export class UsersService {
 
   async cancelSubscription(userId: string) {
     const user = await this.userModel.findById(userId);
-    
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     // Chỉ cho phép hủy subscription nếu user đang có subscription active
-    if (!user.package_id || user.package_id.toString() === 'guest' || user.status !== 'active') {
+    if (
+      !user.package_id ||
+      user.package_id.toString() === 'guest' ||
+      user.status !== 'active'
+    ) {
       throw new BadRequestException('No active subscription to cancel');
     }
 
@@ -125,7 +128,7 @@ export class UsersService {
     const updatedUser = await this.userModel.findByIdAndUpdate(
       userId,
       updateData,
-      { new: true }
+      { new: true },
     );
 
     if (!updatedUser) {

@@ -16,6 +16,10 @@ export class CreateQuizDto {
   description: string;
 
   @IsOptional()
+  @IsString()
+  image?: string;
+
+  @IsOptional()
   @IsNumber()
   @Min(1, { message: 'Time limit must be at least 1 minute' })
   @Max(480, { message: 'Time limit cannot exceed 480 minutes (8 hours)' })
