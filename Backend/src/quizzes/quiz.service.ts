@@ -67,6 +67,14 @@ export class QuizService {
   }
 
   /**
+   * Lấy danh sách quiz không phải premium (miễn phí)
+   * @returns Promise<Quiz[]> - Danh sách quiz miễn phí
+   */
+  async findNonPremiumQuizzes() {
+    return this.quizModel.find({ is_premium: false }).populate('user_id', 'username email');
+  }
+
+  /**
    * Giup lay thong tin package cua user
    * @param userId - ID của user cần lấy thông tin package
    * @returns Promise<User> - Thông tin user kèm thông tin package

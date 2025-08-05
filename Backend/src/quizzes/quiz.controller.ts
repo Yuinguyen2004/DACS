@@ -31,6 +31,35 @@ export class QuizController {
     return this.quizService.findAll();
   }
 
+  /**
+   * Lấy danh sách quiz mà user có thể truy cập
+   * Nếu user không có premium package, chỉ trả về quiz free
+   */
+  @Get('accessible')
+  @UseGuards(AuthGuard('jwt'))
+  async getAccessibleQuizzes(@Req() req: any) {
+    const userId = req.user.userId;
+    const user = await this.quizService.getUserWithPackage(userId);
+    
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isAdmin = user.role === 'admin';
+    const hasPremiumPackage = user.package_id && 
+      (typeof user.package_id === 'object' 
+        ? (user.package_id as any).price > 0 
+        : false);
+
+    // Nếu là admin hoặc có premium package, trả về tất cả quiz
+    if (isAdmin || hasPremiumPackage) {
+      return this.quizService.findAll();
+    }
+
+    // Nếu không, chỉ trả về quiz free
+    return this.quizService.findNonPremiumQuizzes();
+  }
+
   @Get(':id')
   @UseGuards(AuthGuard('jwt'))
   async findOne(@Param('id') id: string, @Req() req: any) {
@@ -68,6 +97,10 @@ export class QuizController {
   @UseGuards(AuthGuard('jwt'))
   async create(@Body() quizData: CreateQuizDto, @Req() req: any) {
     const userId = req.user.userId;
+    
+    // Kiểm tra quyền tạo quiz (chỉ admin hoặc premium user)
+    await this.checkPremiumAccess(userId, 'tạo quiz');
+
     return this.quizService.create(quizData, userId);
   }
 
@@ -139,6 +172,34 @@ export class QuizController {
     @Req() req: any,
   ) {
     const userId = req.user.userId;
+    
+    // Kiểm tra quyền import quiz (chỉ admin hoặc premium user)
+    await this.checkPremiumAccess(userId, 'import quiz từ file');
+
     return this.quizService.importQuizFromFile(file, userId);
+  }
+
+  /**
+   * Helper method để kiểm tra quyền premium của user
+   */
+  private async checkPremiumAccess(userId: string, action: string) {
+    const user = await this.quizService.getUserWithPackage(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const isAdmin = user.role === 'admin';
+    const hasPremiumPackage = user.package_id && 
+      (typeof user.package_id === 'object' 
+        ? (user.package_id as any).price > 0 
+        : false);
+
+    if (!isAdmin && !hasPremiumPackage) {
+      throw new ForbiddenException(
+        `Bạn cần nâng cấp gói premium để ${action}`,
+      );
+    }
+
+    return { user, isAdmin, hasPremiumPackage };
   }
 }

@@ -48,6 +48,39 @@ export class UsersController {
     return rest;
   }
 
+  /**
+   * Kiểm tra trạng thái subscription của user hiện tại
+   */
+  @Get('subscription-status')
+  @UseGuards(AuthGuard('jwt'))
+  async getSubscriptionStatus(@Req() req: any) {
+    const userId = req.user.userId;
+    const user = await this.usersService.findById(userId);
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isAdmin = user.role === 'admin';
+    const hasPremiumPackage = user.package_id && 
+      (typeof user.package_id === 'object' || user.package_id !== 'guest');
+    
+    const isActive = user.status === 'active';
+    const subscriptionEndDate = user.subscriptionEndDate;
+    const isSubscriptionValid = subscriptionEndDate ? new Date() < new Date(subscriptionEndDate) : false;
+
+    return {
+      isAdmin,
+      hasPremiumPackage,
+      isActive,
+      subscriptionType: user.subscriptionType,
+      subscriptionStartDate: user.subscriptionStartDate,
+      subscriptionEndDate: user.subscriptionEndDate,
+      isSubscriptionValid,
+      canAccessPremium: isAdmin || (hasPremiumPackage && isActive && isSubscriptionValid),
+    };
+  }
+
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.update(id, dto);
