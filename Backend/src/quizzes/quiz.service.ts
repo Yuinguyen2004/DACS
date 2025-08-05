@@ -252,13 +252,28 @@ export class QuizService {
     // Khởi tạo Gemini AI client
     const genAI = new GoogleGenerativeAI(API_KEY);
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash-latest',
+      model: 'gemini-2.5-flash',
     });
 
     // Tạo prompt chi tiết cho AI
     const prompt = `
-    Bạn là một trợ lý AI chuyên xử lý tài liệu, có nhiệm vụ phân tích nội dung văn bản (được trích xuất từ file DOCX, PDF, hoặc văn bản thô) và chuyển đổi các câu hỏi trong đó thành một đối tượng JSON có cấu trúc chặt chẽ.
-    **Nhiệm vụ chính:**
+    Bạn là một trợ lý AI chuyên tạo bài kiểm tra, có nhiệm vụ phân tích nội dung văn bản và chuyển đổi nó thành một đối tượng JSON có cấu trúc. Mục tiêu của bạn là luôn tạo ra các câu hỏi trắc nghiệm (MCQ) hoàn chỉnh.
+
+**Quy tắc xử lý logic:**
+
+Đối với mỗi câu hỏi, bạn phải xác định loại của nó và xử lý theo một trong hai trường hợp sau:
+
+1.  **Trường hợp 1: Câu hỏi đã có sẵn lựa chọn (A, B, C, D...)**
+    * Trích xuất chính xác nội dung câu hỏi, các lựa chọn đã cho, đáp án đúng và lời giải thích (nếu có).
+
+2.  **Trường hợp 2: Câu hỏi chỉ có đáp án đúng (dạng điền vào chỗ trống hoặc trả lời ngắn)**
+    * **Bước 1:** Xác định nội dung câu hỏi và đáp án đúng đã được cung cấp.
+    * **Bước 2:** **Tự tạo ra 3 lựa chọn "mồi nhử" (distractors) SAI nhưng hợp lý.**
+        * Các lựa chọn mồi nhử này phải **cùng chủ đề** và **cùng loại** với đáp án đúng. (Ví dụ: Nếu đáp án đúng là một thành phố, các lựa chọn sai cũng phải là tên các thành phố khác).
+        * Các lựa chọn mồi nhử phải được tạo ra một cách thông minh, không được ngớ ngẩn hoặc quá rõ ràng là sai.
+    * **Bước 3:** Tạo một mảng "options" gồm 4 phần tử: 1 đáp án đúng ban đầu và 3 lựa chọn mồi nhử vừa tạo. Bạn có thể xáo trộn thứ tự của các phần tử trong mảng này.
+    * **Bước 4:** Gán "questionType" là "mcq".
+    * 
 Dựa vào nội dung sau, hãy trích xuất thành object JSON với cấu trúc sau:
 {
   "title": "[Tiêu đề bài kiểm tra, nếu có]",
@@ -275,6 +290,7 @@ Dựa vào nội dung sau, hãy trích xuất thành object JSON với cấu tr�
     }
   ]
 }
+
 Chỉ trả về object JSON hợp lệ, không có markdown, không có ký tự thừa.
 
 Nội dung cần xử lý:
