@@ -273,7 +273,7 @@ export class QuizService {
         * Các lựa chọn mồi nhử phải được tạo ra một cách thông minh, không được ngớ ngẩn hoặc quá rõ ràng là sai.
     * **Bước 3:** Tạo một mảng "options" gồm 4 phần tử: 1 đáp án đúng ban đầu và 3 lựa chọn mồi nhử vừa tạo. Bạn có thể xáo trộn thứ tự của các phần tử trong mảng này.
     * **Bước 4:** Gán "questionType" là "mcq".
-    * 
+
 Dựa vào nội dung sau, hãy trích xuất thành object JSON với cấu trúc sau:
 {
   "title": "[Tiêu đề bài kiểm tra, nếu có]",
