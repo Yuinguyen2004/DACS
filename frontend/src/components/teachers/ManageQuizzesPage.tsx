@@ -70,7 +70,7 @@ export default function ManageQuizzesPage() {
   const handleEdit = (quizId: string) => {
     console.log(`Editing quiz with ID: ${quizId}`)
     // In a real app, you would navigate to the create-quiz page with quiz data
-    alert(`Navigating to edit quiz: ${quizId}`)
+    window.location.href = `/edit/${quizId}`
   }
 
   const handleDelete = (quizId: string) => {

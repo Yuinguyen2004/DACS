@@ -13,6 +13,8 @@ import QuizResultPage from './components/quizzes/QuizResultPage'
 import PaymentMethodSelectionPage from './components/quizzes/PaymentMethod'
 import PaymentSuccessPage from './components/quizzes/PaymentSuccess'
 import PaymentFailurePage from './components/quizzes/PaymentFail'
+import EditQuizPage from './components/teachers/EditQuizzes'
+import AdminEditUserPage from './components/teachers/admin/AdminEditUser'
 import { Routes, Route } from 'react-router-dom'
 
 function App() {
@@ -26,7 +28,7 @@ function App() {
           <Route path="/history" element={<QuizHistoryPage />} />
           <Route path="/homepage" element={<Quizhomepage />} />
           <Route path="/test" element={<QuizTakingPage />} />
-          <Route path="/upgrade" element={<UpgradePremiumPage isPremiumUser={true} />} />
+          <Route path="/upgrade" element={<UpgradePremiumPage isPremiumUser={false} />} />
           <Route path="/create" element={<CreateQuizPage />} />
           <Route path="/manage" element={<ManageQuizzesPage />} />
           <Route path="/admin" element={<AdminDashboardPage />} />
@@ -34,6 +36,8 @@ function App() {
           <Route path="/payment" element={<PaymentMethodSelectionPage />} />
           <Route path="/payment-success" element={<PaymentSuccessPage />} />
           <Route path="/payment-failure" element={<PaymentFailurePage />} />
+          <Route path="/edit/:quizId" element={<EditQuizPage />} />
+          <Route path="/adminedituser/:userId" element={<AdminEditUserPage />} />
         </Routes>
       </main>
       <AppFooter />
