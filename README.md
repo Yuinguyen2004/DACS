@@ -38,9 +38,11 @@ Một nền tảng học tập trực tuyến với hệ thống quiz và bài k
 - **Hủy subscription**: Người dùng có thể hủy gói đăng ký
 
 ### 🔔 Hệ thống thông báo
+- **Real-time WebSocket**: Socket.IO cho thông báo tức thời
 - **Thông báo cá nhân**: Gửi thông báo cho từng người dùng
 - **Broadcast**: Admin gửi thông báo tới nhiều người cùng lúc
 - **Thông báo hệ thống**: Thông báo tự động từ hệ thống
+- **Email notifications**: SendGrid integration cho email alerts
 - **Quản lý trạng thái**: Đánh dấu đã đọc/chưa đọc
 - **Phân loại**: Các loại thông báo khác nhau (system, payment, quiz, etc.)
 
@@ -54,15 +56,66 @@ Một nền tảng học tập trực tuyến với hệ thống quiz và bài k
 ### Backend
 - **Framework**: NestJS (Node.js)
 - **Database**: MongoDB với Mongoose ODM
-- **Authentication**: JWT (JSON Web Tokens)
-- **File Processing**: Mammoth (Word), pdf-parse (PDF)
+- **Authentication**: JWT (JSON Web Tokens) + Firebase Admin SDK
+- **Real-time**: Socket.IO cho WebSocket notifications
+- **Scheduling**: NestJS Schedule (cron jobs) cho auto test timeout
+- **File Processing**: Mammoth (Word), pdf-parse (PDF), Multer (uploads)
 - **AI Integration**: Google Gemini AI cho import quiz tự động
-- **Payment**: VNPay SDK, PayPal SDK
+- **Payment**: VNPay SDK, PayPal SDK với webhook support
+- **Email**: SendGrid cho email notifications
 - **Validation**: class-validator, class-transformer
 
-### API Structure
+### Frontend
+- **Framework**: React 19 với TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **Animations**: GSAP (@gsap/react)
+- **Charts**: Recharts
+- **Icons**: Lucide React + React Icons
+- **Routing**: React Router DOM
+- **HTTP Client**: Axios
+- **Real-time**: Socket.IO Client
+- **Date Processing**: Day.js
+- **Firebase**: Firebase client SDK
+
+### DevOps & Tools
+- **Testing**: Jest (backend), ESLint + Prettier (both)
+- **Type Safety**: TypeScript (full-stack)
+- **Package Manager**: npm
+- **Development**: Hot reload với nodemon (backend), Vite HMR (frontend)
+
+## 🏗 Kiến trúc hệ thống
+
+### Cấu trúc dự án
 ```
-/auth              - Xác thực người dùng
+DACS/
+├── Backend/                 # NestJS API Server
+│   ├── src/
+│   │   ├── auth/           # JWT + Firebase authentication
+│   │   ├── users/          # User management + subscription
+│   │   ├── quizzes/        # Quiz CRUD + AI import
+│   │   ├── questions/      # Question management
+│   │   ├── answers/        # Answer management
+│   │   ├── test-attempts/  # Test taking + premium control
+│   │   ├── leaderboards/   # Ranking system
+│   │   ├── payments/       # VNPay + PayPal integration
+│   │   ├── packages/       # Subscription packages
+│   │   └── notifications/  # WebSocket + email notifications
+│   └── package.json
+├── frontend/               # React + TypeScript SPA
+│   ├── src/
+│   │   ├── components/     # UI components (shadcn/ui based)
+│   │   ├── services/       # API + WebSocket clients
+│   │   ├── types/          # TypeScript definitions
+│   │   ├── hooks/          # Custom React hooks
+│   │   └── firebase/       # Firebase configuration
+│   └── package.json
+└── README.md
+```
+
+### API Endpoints
+```
+/auth              - Xác thực người dùng (JWT + Firebase)
 /users             - Quản lý người dùng + kiểm tra subscription status
 /quizzes           - CRUD Quiz và import file (Premium gated)
   ├── GET /accessible     - Quiz có thể truy cập theo subscription
@@ -74,7 +127,7 @@ Một nền tảng học tập trực tuyến với hệ thống quiz và bài k
 /leaderboards      - Bảng xếp hạng
 /payments          - Xử lý thanh toán (VNPay + PayPal)
 /packages          - Quản lý gói dịch vụ
-/notifications     - Hệ thống thông báo
+/notifications     - Hệ thống thông báo + WebSocket gateway
 ```
 
 ## 🏗 Cấu trúc Database
@@ -90,8 +143,56 @@ Một nền tảng học tập trực tuyến với hệ thống quiz và bài k
 - **packages**: Các gói dịch vụ
 - **notifications**: Thông báo người dùng
 
-## 📁 File Types
-Dự án bao gồm file `types.ts` chứa đầy đủ TypeScript interfaces cho frontend, đồng bộ với backend schemas.
+## 🚀 Cài đặt và chạy dự án
+
+### Prerequisites
+- Node.js (v18+)
+- MongoDB
+- npm hoặc yarn
+- Firebase project setup
+
+### Backend Setup
+```bash
+cd Backend
+npm install
+# Tạo file .env với các biến môi trường cần thiết
+npm run start:dev  # Development mode
+npm run build      # Production build
+npm run start:prod # Production mode
+```
+
+### Frontend Setup  
+```bash
+cd frontend
+npm install
+npm run dev        # Development mode (Vite)
+npm run build      # Production build
+npm run preview    # Preview production build
+```
+
+### Environment Variables
+#### Backend (.env)
+```env
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+FIREBASE_PROJECT_ID=your_firebase_project_id
+SENDGRID_API_KEY=your_sendgrid_key
+VNPAY_TMN_CODE=your_vnpay_code
+VNPAY_SECRET_KEY=your_vnpay_secret
+PAYPAL_CLIENT_ID=your_paypal_client_id
+PAYPAL_CLIENT_SECRET=your_paypal_secret
+```
+
+#### Frontend (.env)
+```env
+VITE_API_BASE_URL=http://localhost:3000
+VITE_FIREBASE_CONFIG=your_firebase_config_object
+```
+
+## 📁 TypeScript Integration
+- **Backend**: Đầy đủ NestJS TypeScript với decorators và DTOs
+- **Frontend**: React + TypeScript với strict type checking
+- **Shared Types**: File `types.ts` đồng bộ interfaces giữa frontend-backend
 
 ## 🎭 Premium Access Control
 
@@ -135,18 +236,23 @@ Dự án bao gồm file `types.ts` chứa đầy đủ TypeScript interfaces cho
 - Validation thông minh
 
 ### 🔒 Bảo mật & Kiểm soát truy cập
-- JWT authentication
-- Role-based access control (User/Admin)
+- **Hybrid Authentication**: JWT + Firebase Admin SDK
+- **Role-based access control**: User/Admin với Guards và Decorators
 - **Premium Access Control**: Kiểm soát nghiêm ngặt nội dung premium
 - **Multi-layer Protection**: Quiz creation, quiz access, test attempts
-- Input validation & secure payment processing
+- **Input validation**: class-validator + class-transformer
+- **Secure payments**: VNPay + PayPal với webhook verification
+- **Real-time security**: WebSocket authentication & authorization
 
 ### 📱 User Experience theo Subscription
+- **Modern UI**: React 19 + Tailwind CSS + shadcn/ui components
+- **Smooth Animations**: GSAP-powered interactions
+- **Real-time Updates**: Socket.IO cho instant notifications
+- **Responsive Design**: Mobile-first approach
 - **Free Users**: Truy cập quiz miễn phí, không thể tạo quiz
 - **Premium Users**: Full access, tạo quiz, import AI, quiz premium
-- **Admin**: Quản lý toàn hệ thống
-- Real-time payment status & instant quiz results
-- Progress tracking & comprehensive history
+- **Admin Dashboard**: Charts, analytics với Recharts
+- **Progress tracking**: Comprehensive history với time tracking
 
 ---
 
