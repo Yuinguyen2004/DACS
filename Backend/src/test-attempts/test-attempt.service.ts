@@ -342,18 +342,19 @@ export class TestAttemptService {
 
     const attempts = await this.testAttemptModel
       .find(filter)
-      .populate('quiz_id', 'title description')
-      .sort({ completed_at: -1 })
+      .populate('quiz_id', 'title description time_limit')
+      .sort({ started_at: -1 })
       .lean();
 
     return attempts.map((attempt) => ({
       _id: attempt._id,
-      quiz: attempt.quiz_id,
+      quiz_id: attempt.quiz_id, // Return populated quiz data
       score: attempt.score,
       total_questions: attempt.total_questions,
       correct_answers: attempt.correct_answers,
       incorrect_answers: attempt.incorrect_answers,
       completion_time: attempt.completion_time,
+      started_at: attempt.started_at,
       completed_at: attempt.completed_at,
       status: attempt.status,
     }));
@@ -365,8 +366,13 @@ export class TestAttemptService {
    * Dung de review lai bai lam sau khi hoan thanh
    */
   async getTestAttemptDetails(attemptId: string, userId: string) {
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(attemptId) || !Types.ObjectId.isValid(userId)) {
+      throw new NotFoundException('Invalid ID format');
+    }
+
     const attempt = await this.testAttemptModel
-      .findOne({ _id: attemptId, user_id: new Types.ObjectId(userId) })
+      .findOne({ _id: new Types.ObjectId(attemptId), user_id: new Types.ObjectId(userId) })
       .populate('quiz_id', 'title description')
       .populate('answers.question_id', 'content type question_number')
       .populate('answers.selected_answer_id', 'content is_correct')
@@ -551,11 +557,80 @@ export class TestAttemptService {
     return false;
   }
 
-  async getTestAttemptById(id: string): Promise<TestAttempt | null> {
-    const attempt = await this.testAttemptModel.findById(id);
-    if (!attempt) {
-      throw new NotFoundException('Test attempt not found');
+  
+  /**
+   * Manually abandon a test attempt (when user leaves the test page)
+   * This should be called when the user navigates away or closes the test
+   */
+  /**
+   * Manually abandon a test attempt (when user leaves the test page)
+   * This should be called when the user navigates away or closes the test
+   */
+  async abandonTestAttempt(attemptId: string, userId: string): Promise<boolean> {
+    console.log(`[ABANDON] Attempting to abandon attempt ${attemptId} for user ${userId}`);
+    
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(attemptId) || !Types.ObjectId.isValid(userId)) {
+      console.log(`[ABANDON] Invalid ID format`);
+      return false;
     }
+
+    try {
+      // First get the attempt to calculate completion time
+      const existingAttempt = await this.testAttemptModel.findOne({
+        _id: new Types.ObjectId(attemptId),
+        user_id: new Types.ObjectId(userId),
+        status: 'in_progress'
+      });
+
+      if (!existingAttempt) {
+        console.log(`[ABANDON] Attempt ${attemptId} not found or not in progress`);
+        return false;
+      }
+
+      // Calculate completion time
+      const now = new Date();
+      const completionTime = Math.floor(
+        (now.getTime() - existingAttempt.started_at.getTime()) / 1000
+      );
+
+      // Use atomic update to prevent race condition with submitTest
+      const attempt = await this.testAttemptModel.findOneAndUpdate(
+        {
+          _id: new Types.ObjectId(attemptId),
+          user_id: new Types.ObjectId(userId),
+          status: 'in_progress', // Only abandon if still in progress
+        },
+        {
+          status: 'abandoned',
+          completed_at: now,
+          completion_time: completionTime,
+        },
+        { new: true }
+      );
+
+      if (attempt) {
+        console.log(`[ABANDON] Successfully abandoned attempt ${attemptId} after ${completionTime} seconds`);
+        return true;
+      } else {
+        console.log(`[ABANDON] Attempt ${attemptId} not found or already completed/abandoned`);
+        return false;
+      }
+    } catch (error) {
+      console.error(`[ABANDON] Error abandoning attempt ${attemptId}:`, error);
+      return false;
+    }
+  }
+
+  async getTestAttemptById(id: string): Promise<TestAttempt | null> {
+    // Validate ObjectId format
+    if (!Types.ObjectId.isValid(id)) {
+      return null;
+    }
+    
+    const attempt = await this.testAttemptModel.findById(id);
     return attempt;
   }
+
+
 }

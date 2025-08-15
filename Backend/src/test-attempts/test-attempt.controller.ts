@@ -9,7 +9,7 @@ import {
   Request,
   NotFoundException,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { TestAttemptService } from './test-attempt.service';
 import { SubmitTestDto } from './dto/submit-test.dto';
 
@@ -23,7 +23,7 @@ import { SubmitTestDto } from './dto/submit-test.dto';
  * 4. GET /:id - xem chi tiet 1 lan lam
  */
 @Controller('test-attempts')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(FirebaseAuthGuard)
 export class TestAttemptController {
   constructor(private readonly testAttemptService: TestAttemptService) {}
 
@@ -59,27 +59,35 @@ export class TestAttemptController {
     );
   }
 
+
+
   /**
    * API xem chi tiet 1 lan lam bai
    * Hien thi dap an dung va sai de review
    */
   @Get(':id')
   async getTestAttemptDetails(@Param('id') id: string, @Request() req: any) {
-    // Lay thong tin attempt truoc de kiem tra userId
-    const attempt = await this.testAttemptService.getTestAttemptById(id);
-    // Kiem tra xem attempt co ton tai khong
-    if (!attempt) {
-      throw new NotFoundException('Test attempt not found');
-    }
-
-    // Kiem tra xem attempt co thuoc ve user hien tai khong
-    if (attempt.user_id.toString() !== req.user.userId) {
-      throw new NotFoundException('You can only view your own test attempts');
-    }
-
     return this.testAttemptService.getTestAttemptDetails(
       id,
       req.user.userId as string,
     );
+  }
+
+  
+  /**
+   * API to abandon a test attempt (when user leaves the test page)
+   * This is called when the user navigates away or closes the browser
+   */
+  @Post('abandon/:id')
+  async abandonTestAttempt(@Param('id') id: string, @Request() req: any) {
+    const success = await this.testAttemptService.abandonTestAttempt(
+      id,
+      req.user.userId as string,
+    );
+    
+    return {
+      success,
+      message: success ? 'Test attempt abandoned successfully' : 'Test attempt could not be abandoned'
+    };
   }
 }

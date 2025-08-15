@@ -6,13 +6,15 @@ import {
   Query,
   Param,
   Req,
+  Res,
   Logger,
   BadRequestException,
   UseGuards,
   Headers,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { PaymentService } from './payment.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import {
   PaymentStatus,
   PaymentMethod,
@@ -27,7 +29,7 @@ export class PaymentController {
   constructor(private readonly paymentService: PaymentService) {}
 
   @Post('vnpay/create-url')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(FirebaseAuthGuard)
   async createPaymentUrl(
     @Body() createPaymentDto: { packageId: string },
     @Req()
@@ -66,7 +68,7 @@ export class PaymentController {
   }
 
   @Post('paypal/create-payment')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(FirebaseAuthGuard)
   async createPayPalPayment(
     @Body() createPaymentDto: { packageId: string },
     @Req()
@@ -108,7 +110,7 @@ export class PaymentController {
   }
 
   @Post('paypal/capture-payment')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(FirebaseAuthGuard)
   async capturePayPalPayment(
     @Body() capturePaymentDto: { orderId: string },
     @Req()
@@ -214,6 +216,7 @@ export class PaymentController {
   @Get('paypal/return-url/success')
   async handlePayPalSuccess(
     @Query() query: { token: string; PayerID: string },
+    @Res() res: Response,
   ) {
     this.logger.log('PayPal payment success return:', JSON.stringify(query));
 
@@ -223,21 +226,16 @@ export class PaymentController {
       // Tìm thanh toán trong database
       const payment = await this.paymentService.findByPayPalOrderId(orderId);
       if (!payment) {
-        return {
-          success: false,
-          message: 'Payment not found',
-          redirectUrl: '/payment/failed',
-        };
+        this.logger.warn(`PayPal payment not found for order: ${orderId}`);
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=payment_not_found`);
       }
 
       // Bắt đơn hàng PayPal
-      const capturedOrder =
-        await this.paymentService.capturePayPalOrder(orderId);
+      const capturedOrder = await this.paymentService.capturePayPalOrder(orderId);
 
       // Cập nhật trạng thái thanh toán dựa trên kết quả bắt
       if (capturedOrder.status === 'COMPLETED') {
-        const captureId =
-          capturedOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+        const captureId = capturedOrder.purchase_units?.[0]?.payments?.captures?.[0]?.id;
 
         await this.paymentService.updatePaymentWithPayPal(
           (payment._id as any).toString(),
@@ -250,13 +248,7 @@ export class PaymentController {
           `PayPal payment ${payment._id} succeeded via return URL`,
         );
 
-        return {
-          success: true,
-          message: 'Payment completed successfully',
-          paymentCode: payment.payment_code,
-          captureId: captureId,
-          redirectUrl: '/payment/success',
-        };
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?paymentCode=${payment.payment_code}&amount=${payment.amount}`);
       } else {
         await this.paymentService.updatePaymentWithPayPal(
           (payment._id as any).toString(),
@@ -265,25 +257,16 @@ export class PaymentController {
           PaymentStatus.FAILED,
         );
 
-        return {
-          success: false,
-          message: 'Payment capture failed',
-          paymentCode: payment.payment_code,
-          redirectUrl: '/payment/failed',
-        };
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=capture_failed`);
       }
     } catch (error) {
       this.logger.error('Error handling PayPal success return:', error);
-      return {
-        success: false,
-        message: 'System error',
-        redirectUrl: '/payment/failed',
-      };
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=processing_error`);
     }
   }
 
   @Get('paypal/return-url/cancel')
-  async handlePayPalReturnCancel(@Query() query: { token: string }) {
+  async handlePayPalReturnCancel(@Query() query: { token: string }, @Res() res: Response) {
     this.logger.log(
       'PayPal payment cancelled via return URL:',
       JSON.stringify(query),
@@ -295,11 +278,8 @@ export class PaymentController {
       // Tìm thanh toán trong database
       const payment = await this.paymentService.findByPayPalOrderId(orderId);
       if (!payment) {
-        return {
-          success: false,
-          message: 'Payment not found',
-          redirectUrl: '/payment/failed',
-        };
+        this.logger.warn(`PayPal payment not found for order: ${orderId}`);
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=payment_not_found`);
       }
 
       // Cập nhật trạng thái thanh toán thành đã hủy
@@ -310,19 +290,10 @@ export class PaymentController {
         PaymentStatus.FAILED,
       );
 
-      return {
-        success: false,
-        message: 'Payment cancelled by user',
-        paymentCode: payment.payment_code,
-        redirectUrl: '/payment/cancelled',
-      };
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=cancelled`);
     } catch (error) {
       this.logger.error('Error handling PayPal return cancel:', error);
-      return {
-        success: false,
-        message: 'System error',
-        redirectUrl: '/payment/failed',
-      };
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=processing_error`);
     }
   }
 
@@ -534,7 +505,7 @@ export class PaymentController {
   }
 
   @Get('vnpay/return-url')
-  async handleReturnUrl(@Query() query: any) {
+  async handleReturnUrl(@Query() query: any, @Res() res: Response) {
     this.logger.log('User returned from VNPAY:', JSON.stringify(query));
 
     try {
@@ -543,11 +514,8 @@ export class PaymentController {
         ...query,
       });
       if (!isValidSignature) {
-        return {
-          success: false,
-          message: 'Invalid signature',
-          redirectUrl: '/payment/failed',
-        };
+        this.logger.warn('Invalid signature from VNPay return URL');
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=invalid_signature`);
       }
 
       const paymentCode = query.vnp_TxnRef;
@@ -557,11 +525,8 @@ export class PaymentController {
       // Tìm thanh toán
       const payment = await this.paymentService.findByPaymentCode(paymentCode);
       if (!payment) {
-        return {
-          success: false,
-          message: 'Payment not found',
-          redirectUrl: '/payment/failed',
-        };
+        this.logger.warn(`Payment not found for code: ${paymentCode}`);
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=payment_not_found`);
       }
 
       // Cập nhật trạng thái thanh toán nếu chưa được cập nhật
@@ -579,13 +544,8 @@ export class PaymentController {
             `Payment ${payment._id} updated to SUCCESS via return URL`,
           );
 
-          return {
-            success: true,
-            message: 'Payment successful',
-            paymentCode: paymentCode,
-            amount: payment.amount,
-            redirectUrl: '/payment/success',
-          };
+          // Redirect to success page with payment details
+          return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?paymentCode=${paymentCode}&amount=${payment.amount}`);
         } else {
           // Thanh toán thất bại
           await this.paymentService.updatePaymentStatus(
@@ -599,45 +559,25 @@ export class PaymentController {
             `Payment ${payment._id} updated to FAILED via return URL`,
           );
 
-          return {
-            success: false,
-            message: 'Payment failed',
-            errorCode: vnpResponseCode,
-            redirectUrl: '/payment/failed',
-          };
+          return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=payment_failed&errorCode=${vnpResponseCode}`);
         }
       } else {
         // Thanh toán đã được xử lý trước đó (có thể từ IPN)
         if (payment.status === PaymentStatus.SUCCESS) {
-          return {
-            success: true,
-            message: 'Payment successful',
-            paymentCode: paymentCode,
-            amount: payment.amount,
-            redirectUrl: '/payment/success',
-          };
+          return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-success?paymentCode=${paymentCode}&amount=${payment.amount}`);
         } else {
-          return {
-            success: false,
-            message: 'Payment failed',
-            errorCode: payment.vnp_response_code || vnpResponseCode,
-            redirectUrl: '/payment/failed',
-          };
+          return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=already_processed&errorCode=${payment.vnp_response_code || vnpResponseCode}`);
         }
       }
     } catch (error) {
       this.logger.error('Error processing return URL:', error);
-      return {
-        success: false,
-        message: 'System error',
-        redirectUrl: '/payment/failed',
-      };
+      return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment-fail?reason=processing_error`);
     }
   }
 
   // Các endpoint tiện ích bổ sung
   @Get('status/:paymentCode')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(FirebaseAuthGuard)
   async getPaymentStatus(@Param('paymentCode') paymentCode: string) {
     const payment = await this.paymentService.findByPaymentCode(paymentCode);
     if (!payment) {

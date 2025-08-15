@@ -7,6 +7,7 @@ import {
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Question } from './question.schema';
+import { Answer } from '../answers/answer.schema';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 
@@ -14,6 +15,7 @@ import { UpdateQuestionDto } from './dto/update-question.dto';
 export class QuestionService {
   constructor(
     @InjectModel(Question.name) private questionModel: Model<Question>,
+    @InjectModel(Answer.name) private answerModel: Model<Answer>,
   ) {}
 
   async findAll() {
@@ -24,9 +26,25 @@ export class QuestionService {
     if (!Types.ObjectId.isValid(quizId)) {
       throw new BadRequestException('Invalid quiz ID format');
     }
-    return this.questionModel
+    
+    const questions = await this.questionModel
       .find({ quiz_id: new Types.ObjectId(quizId) })
       .populate('quiz_id', 'title description');
+    
+    // Get answers for each question
+    const questionsWithAnswers = await Promise.all(
+      questions.map(async (question) => {
+        const answers = await this.answerModel.find({ 
+          question_id: question._id 
+        });
+        return {
+          ...question.toObject(),
+          answers
+        };
+      })
+    );
+    
+    return questionsWithAnswers;
   }
 
   async findOne(id: string) {

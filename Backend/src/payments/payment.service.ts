@@ -293,15 +293,20 @@ export class PaymentService {
     try {
       const accessToken = await this.getPayPalAccessToken();
 
+      // Convert VND to USD for PayPal (approximate rate: 1 USD = 24,000 VND)
+      // In production, you should use a real-time currency conversion API
+      const vndToUsdRate = 24000;
+      const usdAmount = (payment.amount / vndToUsdRate).toFixed(2);
+
       const orderData = {
         intent: 'CAPTURE',
         purchase_units: [
           {
             amount: {
               currency_code: 'USD',
-              value: payment.amount.toString(),
+              value: usdAmount,
             },
-            description: `Payment for package ${payment.package_id}`,
+            description: `Payment for package ${payment.package_id} (${payment.amount.toLocaleString('vi-VN')} VND)`,
             custom_id: payment.payment_code,
           },
         ],

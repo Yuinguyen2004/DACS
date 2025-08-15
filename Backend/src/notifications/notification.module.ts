@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { JwtModule } from '@nestjs/jwt';
+import { AuthModule } from '../auth/auth.module';
+import { UsersModule } from '../users/user.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { NotificationController } from './notification.controller';
 import { NotificationService } from './notification.service';
@@ -14,14 +15,8 @@ import { User, UserSchema } from '../users/user.schema';
       { name: Notification.name, schema: NotificationSchema },
       { name: User.name, schema: UserSchema },
     ]),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '24h' },
-      }),
-      inject: [ConfigService],
-    }),
+    AuthModule,
+    UsersModule,
   ],
   controllers: [NotificationController],
   providers: [

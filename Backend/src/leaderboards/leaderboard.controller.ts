@@ -15,13 +15,13 @@ import {
 import { LeaderboardService } from './leaderboard.service';
 import { CreateLeaderboardDto } from './dto/create-leaderboard.dto';
 import { UpdateLeaderboardDto } from './dto/update-leaderboard.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { Types } from 'mongoose';
 
 @Controller('leaderboards')
-@UseGuards(AuthGuard('jwt')) // Require authentication for all endpoints
+@UseGuards(FirebaseAuthGuard) // Require authentication for all endpoints
 export class LeaderboardController {
   constructor(private readonly leaderboardService: LeaderboardService) {}
 

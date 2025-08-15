@@ -54,7 +54,23 @@ export class QuizService {
    * @returns Promise<Quiz[]> - Danh sách tất cả quiz kèm thông tin user tạo
    */
   async findAll() {
-    return this.quizModel.find().populate('user_id', 'username email');
+    const quizzes = await this.quizModel.find().populate('user_id', 'username email');
+    
+    // Add total question count for each quiz
+    const quizzesWithDetails = await Promise.all(
+      quizzes.map(async (quiz) => {
+        const totalQuestions = await this.questionModel.countDocuments({ 
+          quiz_id: quiz._id 
+        });
+        
+        return {
+          ...quiz.toObject(),
+          totalQuestions
+        };
+      })
+    );
+    
+    return quizzesWithDetails;
   }
 
   /**
@@ -71,7 +87,36 @@ export class QuizService {
    * @returns Promise<Quiz[]> - Danh sách quiz miễn phí
    */
   async findNonPremiumQuizzes() {
-    return this.quizModel.find({ is_premium: false }).populate('user_id', 'username email');
+    return this.quizModel
+      .find({ is_premium: false })
+      .populate('user_id', 'username email');
+  }
+
+  /**
+   * Lấy danh sách quiz được tạo bởi một user cụ thể
+   * @param userId - ID của user cần lấy quiz
+   * @returns Promise<Quiz[]> - Danh sách quiz của user kèm số lượng câu hỏi
+   */
+  async findUserQuizzes(userId: string) {
+    const quizzes = await this.quizModel
+      .find({ user_id: new Types.ObjectId(userId) })
+      .populate('user_id', 'username email')
+      .sort({ created_at: -1 }); // Sort by newest first
+
+    // Add totalQuestions count to each quiz
+    const quizzesWithQuestionCount = await Promise.all(
+      quizzes.map(async (quiz) => {
+        const questionCount = await this.questionModel.countDocuments({
+          quiz_id: quiz._id,
+        });
+        return {
+          ...quiz.toObject(),
+          totalQuestions: questionCount,
+        };
+      })
+    );
+
+    return quizzesWithQuestionCount;
   }
 
   /**
@@ -236,6 +281,54 @@ export class QuizService {
     return {
       message: 'Tạo quiz thành công!',
       totalQuestions: aiQuizObj.questions?.length || 0,
+    };
+  }
+
+  /**
+   * Process .docx file with Gemini AI and return questions data without saving to database
+   * For frontend form population
+   * @param file - File upload từ client (Express.Multer.File)
+   * @returns Promise<object> - Questions data for frontend
+   */
+  async processDocxWithGemini(file: Express.Multer.File) {
+    // Validate file size (5MB limit)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_FILE_SIZE) {
+      throw new BadRequestException('File quá lớn. Kích thước tối đa là 5MB.');
+    }
+
+    // Validate MIME type - only .docx for this endpoint
+    if (file.mimetype !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      throw new BadRequestException('Chỉ hỗ trợ file .docx cho chức năng này.');
+    }
+
+    // Read text from .docx file
+    let rawText = '';
+    const result = await mammoth.extractRawText({ buffer: file.buffer });
+    rawText = result.value;
+
+    // Process with Gemini AI
+    const aiQuizObj = await this.extractQuizFromTextGemini(rawText);
+
+    // Validate extracted data
+    if (!aiQuizObj.questions || aiQuizObj.questions.length === 0) {
+      throw new BadRequestException(
+        'Không tìm thấy câu hỏi nào trong file. Vui lòng kiểm tra nội dung file.',
+      );
+    }
+
+    // Transform to frontend format
+    const questions = aiQuizObj.questions.map((q, index) => ({
+      text: q.questionText,
+      options: q.options,
+      correctAnswerIndex: q.options.findIndex(opt => opt === q.correctAnswer)
+    }));
+
+    return {
+      questions: questions,
+      totalQuestions: questions.length,
+      title: aiQuizObj.title || file.originalname.replace(/\.[^/.]+$/, ''),
+      description: aiQuizObj.description || 'Quiz được tạo từ Gemini AI'
     };
   }
 

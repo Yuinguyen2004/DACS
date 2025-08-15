@@ -13,7 +13,7 @@ import {
   DefaultValuePipe,
   ForbiddenException,
 } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { NotificationService } from './notification.service';
@@ -24,7 +24,7 @@ import { SystemNotificationDto } from './dto/system-notification.dto';
 import { Notification } from './notification.schema';
 
 @Controller('notifications')
-@UseGuards(JwtAuthGuard)
+@UseGuards(FirebaseAuthGuard)
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 

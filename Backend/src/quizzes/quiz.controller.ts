@@ -18,7 +18,7 @@ import {
 } from '@nestjs/common';
 import { QuizService } from './quiz.service';
 import { CreateQuizDto } from './dto/create-quiz.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 
@@ -36,19 +36,20 @@ export class QuizController {
    * Nếu user không có premium package, chỉ trả về quiz free
    */
   @Get('accessible')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async getAccessibleQuizzes(@Req() req: any) {
     const userId = req.user.userId;
     const user = await this.quizService.getUserWithPackage(userId);
-    
+
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
     const isAdmin = user.role === 'admin';
-    const hasPremiumPackage = user.package_id && 
-      (typeof user.package_id === 'object' 
-        ? (user.package_id as any).price > 0 
+    const hasPremiumPackage =
+      user.package_id &&
+      (typeof user.package_id === 'object'
+        ? (user.package_id as any).price > 0
         : false);
 
     // Nếu là admin hoặc có premium package, trả về tất cả quiz
@@ -60,8 +61,15 @@ export class QuizController {
     return this.quizService.findNonPremiumQuizzes();
   }
 
+  @Get('my')
+  @UseGuards(FirebaseAuthGuard)
+  async getMyQuizzes(@Req() req: any) {
+    const userId = req.user.userId;
+    return this.quizService.findUserQuizzes(userId);
+  }
+
   @Get(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async findOne(@Param('id') id: string, @Req() req: any) {
     const quiz = await this.quizService.findOne(id);
     if (!quiz) {
@@ -94,10 +102,10 @@ export class QuizController {
 
   @Post()
   @UsePipes(new ValidationPipe())
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async create(@Body() quizData: CreateQuizDto, @Req() req: any) {
     const userId = req.user.userId;
-    
+
     // Kiểm tra quyền tạo quiz (chỉ admin hoặc premium user)
     await this.checkPremiumAccess(userId, 'tạo quiz');
 
@@ -105,7 +113,7 @@ export class QuizController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async update(
     @Param('id') id: string,
     @Body() quizData: UpdateQuizDto,
@@ -137,7 +145,7 @@ export class QuizController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async delete(@Param('id') id: string, @Req() req: any) {
     const quiz = await this.quizService.findOne(id);
     if (!quiz) {
@@ -165,18 +173,33 @@ export class QuizController {
   }
 
   @Post('import')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
   async importQuizzes(
     @UploadedFile() file: Express.Multer.File,
     @Req() req: any,
   ) {
     const userId = req.user.userId;
-    
+
     // Kiểm tra quyền import quiz (chỉ admin hoặc premium user)
     await this.checkPremiumAccess(userId, 'import quiz từ file');
 
     return this.quizService.importQuizFromFile(file, userId);
+  }
+
+  @Post('process-docx')
+  @UseGuards(FirebaseAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async processDocxWithGemini(
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: any,
+  ) {
+    const userId = req.user.userId;
+
+    // Kiểm tra quyền xử lý file (chỉ admin hoặc premium user)
+    await this.checkPremiumAccess(userId, 'xử lý file với AI');
+
+    return this.quizService.processDocxWithGemini(file);
   }
 
   /**
@@ -189,15 +212,14 @@ export class QuizController {
     }
 
     const isAdmin = user.role === 'admin';
-    const hasPremiumPackage = user.package_id && 
-      (typeof user.package_id === 'object' 
-        ? (user.package_id as any).price > 0 
+    const hasPremiumPackage =
+      user.package_id &&
+      (typeof user.package_id === 'object'
+        ? (user.package_id as any).price > 0
         : false);
 
     if (!isAdmin && !hasPremiumPackage) {
-      throw new ForbiddenException(
-        `Bạn cần nâng cấp gói premium để ${action}`,
-      );
+      throw new ForbiddenException(`Bạn cần nâng cấp gói premium để ${action}`);
     }
 
     return { user, isAdmin, hasPremiumPackage };

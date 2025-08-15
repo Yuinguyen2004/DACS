@@ -10,8 +10,9 @@ import {
 } from '@nestjs/websockets';
 import { Logger, UseGuards } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
-import { JwtService } from '@nestjs/jwt';
+import { FirebaseConfigService } from '../auth/firebase.config';
 import { NotificationService } from './notification.service';
+import { UsersService } from '../users/user.service';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -38,7 +39,8 @@ export class NotificationGateway
 
   constructor(
     private notificationService: NotificationService,
-    private jwtService: JwtService,
+    private firebaseConfig: FirebaseConfigService,
+    private usersService: UsersService,
   ) {}
 
   afterInit(server: Server) {
@@ -56,23 +58,94 @@ export class NotificationGateway
         return;
       }
 
-      // Verify JWT token
-      const payload = this.jwtService.verify(token.replace('Bearer ', ''));
+      const cleanToken = token.replace('Bearer ', '');
+      let decodedToken;
+      let user;
 
-      if (!payload.sub || !payload.email) {
-        this.logger.error(`Invalid token payload for client ${client.id}`);
+      try {
+        // First try to verify as ID token (for direct Firebase client tokens)
+        decodedToken = await this.firebaseConfig.verifyIdToken(cleanToken);
+        
+        if (!decodedToken.uid || !decodedToken.email) {
+          throw new Error('Invalid token payload');
+        }
+
+        // Find user in database
+        user = await this.usersService.findByEmail(decodedToken.email);
+        
+      } catch (idTokenError) {
+        // If ID token verification fails, try custom token validation
+        this.logger.log('ID token verification failed, trying custom token validation:', idTokenError.message);
+        
+        try {
+          // Custom tokens are JWTs signed by our server, so we can decode them
+          const tokenParts = cleanToken.split('.');
+          if (tokenParts.length !== 3) {
+            throw new Error('Invalid token format');
+          }
+          
+          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+          
+          // Verify this is our custom token by checking the structure
+          if (!payload.uid || !payload.claims || !payload.claims.userId) {
+            throw new Error('Invalid custom token payload');
+          }
+          
+          // Extract user info from custom token claims
+          const userId = payload.claims.userId;
+          const firebaseUid = payload.uid;
+          
+          // Find user by ID
+          user = await this.usersService.findById(userId);
+          
+          if (!user) {
+            throw new Error('User not found for custom token');
+          }
+          
+          // Verify the Firebase UID matches
+          if (user.firebaseUid !== firebaseUid) {
+            throw new Error('Firebase UID mismatch');
+          }
+          
+          // Create a decodedToken-like object for consistency
+          decodedToken = {
+            uid: firebaseUid,
+            email: user.email,
+            role: payload.claims.role || user.role,
+            userId: userId
+          };
+          
+        } catch (customTokenError) {
+          this.logger.error(`Both ID token and custom token validation failed for client ${client.id}:`, {
+            idTokenError: idTokenError.message,
+            customTokenError: customTokenError.message
+          });
+          client.disconnect();
+          return;
+        }
+      }
+
+      if (!user && decodedToken.email) {
+        user = await this.usersService.findByEmail(decodedToken.email);
+      }
+
+      if (!user) {
+        this.logger.error(`User not found for client ${client.id}`);
         client.disconnect();
         return;
       }
 
       // Attach user info to socket
-      client.userId = payload.sub;
-      client.userEmail = payload.email;
-      client.userRole = payload.role || 'user';
+      client.userId = user._id.toString();
+      client.userEmail = user.email;
+      client.userRole = user.role || 'user';
 
       // Store connection
       if (client.userId) {
         this.connectedUsers.set(client.userId, client.id);
+        
+        // Set user as online
+        await this.usersService.setUserOnline(client.userId);
 
         // Join user to their personal room
         client.join(`user_${client.userId}`);
@@ -100,9 +173,13 @@ export class NotificationGateway
     }
   }
 
-  handleDisconnect(client: AuthenticatedSocket) {
+  async handleDisconnect(client: AuthenticatedSocket) {
     if (client.userId) {
       this.connectedUsers.delete(client.userId);
+      
+      // Set user as offline
+      await this.usersService.setUserOffline(client.userId);
+      
       this.logger.log(
         `User ${client.userEmail} (${client.userId}) disconnected`,
       );

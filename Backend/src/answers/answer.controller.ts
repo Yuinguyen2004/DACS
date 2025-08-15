@@ -11,7 +11,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { AnswerService } from './answer.service';
-import { AuthGuard } from '@nestjs/passport';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 
 @Controller('answers')
 export class AnswerController {
@@ -33,7 +33,7 @@ export class AnswerController {
   }
 
   @Post()
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async create(
     @Body()
     answerData: {
@@ -46,7 +46,7 @@ export class AnswerController {
   }
 
   @Patch(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async update(
     @Param('id') id: string,
     @Body() updateData: { content?: string; is_correct?: boolean },
@@ -55,13 +55,13 @@ export class AnswerController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async remove(@Param('id') id: string) {
     return this.answerService.remove(id);
   }
 
   @Delete('question/:questionId')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async removeByQuestionId(@Param('questionId') questionId: string) {
     return this.answerService.removeByQuestionId(questionId);
   }

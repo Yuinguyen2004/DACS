@@ -16,7 +16,7 @@ import {
 import { QuestionService } from './question.service';
 import { CreateQuestionDto } from './dto/create-question.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 
 @Controller('questions')
 export class QuestionController {
@@ -43,14 +43,14 @@ export class QuestionController {
 
   @Post()
   @UsePipes(new ValidationPipe())
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async create(@Body() createQuestionDto: CreateQuestionDto, @Req() req: any) {
     return this.questionService.create(createQuestionDto, req.user.userId);
   }
 
   @Patch(':id')
   @UsePipes(new ValidationPipe())
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async update(
     @Param('id') id: string,
     @Body() updateQuestionDto: UpdateQuestionDto,
@@ -60,7 +60,7 @@ export class QuestionController {
   }
 
   @Delete(':id')
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(FirebaseAuthGuard)
   async remove(@Param('id') id: string, @Req() req: any) {
     return this.questionService.remove(id, req.user.userId);
   }
