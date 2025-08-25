@@ -15,6 +15,8 @@ import PaymentMethodSelectionPage from './components/quizzes/PaymentMethod'
 import PaymentSuccessPage from './components/quizzes/PaymentSuccess'
 import PaymentFailurePage from './components/quizzes/PaymentFail'
 import NotificationsPage from './components/quizzes/NotificationsPage'
+import EditQuizPage from './components/teachers/EditQuizzes'
+import AdminEditUserPage from './components/teachers/admin/AdminEditUser'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { authAPI } from './services/api'
 import { User } from './types/types'
@@ -90,6 +92,8 @@ function App() {
           <Route path="/payment/:packageId" element={<PaymentMethodSelectionPage />} />
           <Route path="/payment-success" element={<PaymentSuccessPage />} />
           <Route path="/payment-fail" element={<PaymentFailurePage />} />
+          <Route path="/edit/:quizId" element={<EditQuizPage />} />
+          <Route path="/adminedituser/:userId" element={<AdminEditUserPage />} />
         </Routes>
       </main>
       {!isAuthPage && <AppFooter />}

@@ -49,6 +49,10 @@ export enum NotificationType {
   PAYMENT_FAILED = 'payment_failed',
   QUIZ_COMPLETED = 'quiz_completed',
   QUIZ_REMINDER = 'quiz_reminder',
+  SYSTEM = 'system',
+  PAYMENT = 'payment',
+  QUIZ = 'quiz',
+  TEST_REMINDER = 'test_reminder',
 }
 
 // ===== BASE INTERFACES =====
