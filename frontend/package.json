@@ -37,7 +37,9 @@
     "recharts": "^2.15.4",
     "socket.io-client": "^4.8.1",
     "tailwind-merge": "^3.3.1",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "path": "0.12.7",
+    "next": "16.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.30.1",
