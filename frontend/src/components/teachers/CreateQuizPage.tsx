@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, type ChangeEvent } from "react"
-import { BookOpen, PlusCircle, Save, Trash2, Crown, Upload, FileWarning, ImageIcon, X } from "lucide-react"
+import { BookOpen, PlusCircle, Save, Trash2, Crown, Upload, FileWarning, ImageIcon, X } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -186,6 +186,7 @@ export default function CreateQuizPage() {
   const [isProcessingWithGemini, setIsProcessingWithGemini] = useState(false)
   const [editQuizId, setEditQuizId] = useState<string | null>(null)
   const [isLoadingQuiz, setIsLoadingQuiz] = useState(false)
+  const [aiRequirements, setAiRequirements] = useState("")
 
   // Check authentication and premium access on mount
   useEffect(() => {
@@ -413,7 +414,7 @@ export default function CreateQuizPage() {
 
       // Try Gemini API first, fall back to local processing if endpoint doesn't exist
       try {
-        const result = await quizAPI.processDocxWithGemini(file)
+        const result = await quizAPI.processDocxWithGemini(file, aiRequirements)
 
         if (result.questions && result.questions.length > 0) {
           const geminiQuestions: Question[] = result.questions.map((q, index) => ({
@@ -851,6 +852,23 @@ Lưu ý: Để chỉnh sửa câu hỏi, vui lòng tạo quiz mới.`)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ai-requirements" className="text-sm font-medium text-gray-700">
+                Yêu cầu cho AI (tùy chọn)
+              </Label>
+              <Textarea
+                id="ai-requirements"
+                placeholder="Ví dụ: Tạo 10 câu hỏi trắc nghiệm về lịch sử với độ khó từ cơ bản đến nâng cao. Đảm bảo mỗi câu hỏi có 4 đáp án và 1 đáp án đúng..."
+                value={aiRequirements}
+                onChange={(e) => setAiRequirements(e.target.value)}
+                rows={3}
+                className="border-gray-200 focus:border-purple-400 focus:ring-purple-400"
+              />
+              <p className="text-xs text-gray-500">
+                Mô tả chi tiết yêu cầu của bạn để AI tạo ra những câu hỏi phù hợp nhất.
+              </p>
+            </div>
+
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <Label htmlFor="gemini-import" className="sr-only">
                 AI Import
