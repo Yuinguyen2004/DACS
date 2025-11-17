@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Home,
   BookOpen,
@@ -52,7 +52,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Pie, PieChart, Cell, ResponsiveContainer } from "recharts"
 import { Link, useNavigate } from "react-router-dom"
 import { authAPI, userUtils, userAPI, testAttemptAPI } from "../../services/api"
-import { User as UserType, TestAttempt } from "../../types/types"
+import { User as UserType, TestAttempt, TestAttemptStatus, ChangePasswordDto } from "../../types/types"
 
 // Mock Featured Quizzes Data (kept for "Recommended Quizzes" section)
 const featuredQuizzes = [
@@ -90,12 +90,23 @@ const featuredQuizzes = [
   },
 ]
 
-// Mock Progress Data for Chart
-const progressData = [
-  { name: "Completed", value: 70, color: "hsl(var(--chart-1))" },
-  { name: "In Progress", value: 20, color: "hsl(var(--chart-2))" },
-  { name: "Not Started", value: 10, color: "hsl(var(--chart-3))" },
-]
+const chartConfig = {
+  completed: {
+    label: "Completed",
+    color: "hsl(var(--chart-1))",
+  },
+  inProgress: {
+    label: "In Progress",
+    color: "hsl(var(--chart-2))",
+  },
+  notStarted: {
+    label: "Not Started",
+    color: "hsl(var(--chart-3))",
+  },
+}
+
+type PasswordForm = ChangePasswordDto & { confirmPassword: string }
+type PasswordErrors = Partial<Record<keyof PasswordForm, string>>
 
 export default function UserDashboardPage() {
   const navigate = useNavigate()
@@ -107,6 +118,56 @@ export default function UserDashboardPage() {
     name: '',
     email: '',
   })
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+  const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({})
+  const [passwordSubmitError, setPasswordSubmitError] = useState('')
+  const progressData = useMemo(() => {
+    const totalAttempts = userAttempts.length
+
+    if (totalAttempts === 0) {
+      return [
+        { key: "completed", name: chartConfig.completed.label, value: 0, color: chartConfig.completed.color },
+        { key: "inProgress", name: chartConfig.inProgress.label, value: 0, color: chartConfig.inProgress.color },
+        { key: "notStarted", name: chartConfig.notStarted.label, value: 100, color: chartConfig.notStarted.color },
+      ]
+    }
+
+    const completedCount = userAttempts.filter(
+      (attempt) => attempt.status === TestAttemptStatus.COMPLETED
+    ).length
+    const inProgressCount = userAttempts.filter(
+      (attempt) => attempt.status === TestAttemptStatus.IN_PROGRESS
+    ).length
+    const otherCount = Math.max(totalAttempts - (completedCount + inProgressCount), 0)
+    const toPercent = (count: number) => Math.round((count / totalAttempts) * 100)
+
+    return [
+      {
+        key: "completed",
+        name: chartConfig.completed.label,
+        value: toPercent(completedCount),
+        color: chartConfig.completed.color,
+      },
+      {
+        key: "inProgress",
+        name: chartConfig.inProgress.label,
+        value: toPercent(inProgressCount),
+        color: chartConfig.inProgress.color,
+      },
+      {
+        key: "notStarted",
+        name: chartConfig.notStarted.label,
+        value: toPercent(otherCount),
+        color: chartConfig.notStarted.color,
+      },
+    ]
+  }, [userAttempts])
 
   // Load user data on component mount
   useEffect(() => {
@@ -181,9 +242,80 @@ export default function UserDashboardPage() {
     }
   }
 
+  const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target
+    setPasswordForm((prev) => ({ ...prev, [id]: value }))
+
+    const field = id as keyof PasswordErrors
+    if (passwordErrors[field]) {
+      setPasswordErrors((prev) => ({ ...prev, [field]: undefined }))
+    }
+  }
+
+  const validatePasswordForm = () => {
+    const errors: PasswordErrors = {}
+
+    if (!passwordForm.oldPassword.trim()) {
+      errors.oldPassword = 'Vui lòng nhập mật khẩu hiện tại'
+    }
+
+    if (!passwordForm.newPassword.trim()) {
+      errors.newPassword = 'Vui lòng nhập mật khẩu mới'
+    } else if (passwordForm.newPassword.length < 6) {
+      errors.newPassword = 'Mật khẩu mới phải có ít nhất 6 ký tự'
+    } else if (passwordForm.newPassword === passwordForm.oldPassword) {
+      errors.newPassword = 'Mật khẩu mới phải khác mật khẩu hiện tại'
+    }
+
+    if (!passwordForm.confirmPassword.trim()) {
+      errors.confirmPassword = 'Vui lòng xác nhận mật khẩu mới'
+    } else if (passwordForm.confirmPassword !== passwordForm.newPassword) {
+      errors.confirmPassword = 'Mật khẩu xác nhận không khớp'
+    }
+
+    setPasswordErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const closePasswordModal = () => {
+    setIsPasswordModalOpen(false)
+    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
+    setPasswordErrors({})
+    setPasswordSubmitError('')
+  }
+
   const handleChangePassword = () => {
-    alert('Tính năng đổi mật khẩu sẽ được triển khai trong phiên bản tới.')
-    // TODO: Implement password change functionality
+    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
+    setPasswordErrors({})
+    setPasswordSubmitError('')
+    setIsPasswordModalOpen(true)
+  }
+
+  const handleSubmitPasswordChange = async () => {
+    if (!user?._id) {
+      setPasswordSubmitError('Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.')
+      return
+    }
+
+    setPasswordSubmitError('')
+    const isValid = validatePasswordForm()
+    if (!isValid) return
+
+    try {
+      setIsChangingPassword(true)
+      await userAPI.changePassword(user._id, {
+        oldPassword: passwordForm.oldPassword,
+        newPassword: passwordForm.newPassword,
+      })
+      alert('Đổi mật khẩu thành công!')
+      closePasswordModal()
+    } catch (error: any) {
+      console.error('[PROFILE] Failed to change password:', error)
+      const apiMessage = error.response?.data?.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.'
+      setPasswordSubmitError(apiMessage)
+    } finally {
+      setIsChangingPassword(false)
+    }
   }
   
   const handleLogout = async () => {
@@ -255,21 +387,6 @@ export default function UserDashboardPage() {
         Free
       </Badge>
     )
-  }
-
-  const chartConfig = {
-    completed: {
-      label: "Completed",
-      color: "hsl(var(--chart-1))",
-    },
-    inProgress: {
-      label: "In Progress",
-      color: "hsl(var(--chart-2))",
-    },
-    notStarted: {
-      label: "Not Started",
-      color: "hsl(var(--chart-3))",
-    },
   }
 
   return (
@@ -434,16 +551,16 @@ export default function UserDashboardPage() {
                             paddingAngle={5}
                             cornerRadius={5}
                           >
-                            {progressData.map((entry, index) => (
-                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            {progressData.map((entry) => (
+                              <Cell key={entry.key} fill={entry.color} />
                             ))}
                           </Pie>
                         </PieChart>
                       </ResponsiveContainer>
                     </ChartContainer>
                     <div className="flex flex-col gap-3 text-sm text-gray-700">
-                      {progressData.map((entry, index) => (
-                        <div key={index} className="flex items-center space-x-2">
+                      {progressData.map((entry) => (
+                        <div key={entry.key} className="flex items-center space-x-2">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
                           <span>
                             {entry.name}: <span className="font-semibold">{entry.value}%</span>
@@ -673,6 +790,96 @@ export default function UserDashboardPage() {
           </Card>
         </div>
       </SidebarInset>
+
+      {isPasswordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-6">
+              <h3 className="text-2xl font-semibold text-gray-900">Đổi mật khẩu</h3>
+              <p className="mt-1 text-sm text-gray-600">
+                Vui lòng nhập mật khẩu hiện tại và đặt mật khẩu mới an toàn.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="oldPassword" className="text-sm font-medium text-gray-700">
+                  Mật khẩu hiện tại
+                </Label>
+                <Input
+                  id="oldPassword"
+                  type="password"
+                  value={passwordForm.oldPassword}
+                  onChange={handlePasswordInputChange}
+                  className="mt-1 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
+                  placeholder="Nhập mật khẩu hiện tại"
+                />
+                {passwordErrors.oldPassword && (
+                  <p className="mt-1 text-sm text-red-600">{passwordErrors.oldPassword}</p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="newPassword" className="text-sm font-medium text-gray-700">
+                  Mật khẩu mới
+                </Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordInputChange}
+                  className="mt-1 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
+                  placeholder="Ít nhất 6 ký tự"
+                />
+                {passwordErrors.newPassword && (
+                  <p className="mt-1 text-sm text-red-600">{passwordErrors.newPassword}</p>
+                )}
+              </div>
+
+              <div>
+                <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+                  Nhập lại mật khẩu mới
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={passwordForm.confirmPassword}
+                  onChange={handlePasswordInputChange}
+                  className="mt-1 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
+                  placeholder="Nhập lại mật khẩu mới"
+                />
+                {passwordErrors.confirmPassword && (
+                  <p className="mt-1 text-sm text-red-600">{passwordErrors.confirmPassword}</p>
+                )}
+              </div>
+
+              {passwordSubmitError && (
+                <div className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+                  {passwordSubmitError}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={closePasswordModal}
+                disabled={isChangingPassword}
+                className="border-gray-200 text-gray-700 hover:bg-gray-50"
+              >
+                Hủy
+              </Button>
+              <Button
+                onClick={handleSubmitPasswordChange}
+                disabled={isChangingPassword}
+                className="bg-gradient-to-r from-orange-400 to-pink-400 text-white hover:from-orange-500 hover:to-pink-500"
+              >
+                {isChangingPassword ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </SidebarProvider>
   )
 }

@@ -177,6 +177,7 @@ export class QuizController {
   @UseInterceptors(FileInterceptor('file'))
   async importQuizzes(
     @UploadedFile() file: Express.Multer.File,
+    @Body('desiredQuestionCount') desiredQuestionCount: string,
     @Req() req: any,
   ) {
     const userId = req.user.userId;
@@ -184,14 +185,20 @@ export class QuizController {
     // Kiểm tra quyền import quiz (chỉ admin hoặc premium user)
     await this.checkPremiumAccess(userId, 'import quiz từ file');
 
-    return this.quizService.importQuizFromFile(file, userId);
+    // Parse question count if provided
+    const questionCount = desiredQuestionCount
+      ? parseInt(desiredQuestionCount, 10)
+      : undefined;
+
+    return this.quizService.importQuizFromFile(file, userId, questionCount);
   }
 
-  @Post('process-docx')
+  @Post('process-file')
   @UseGuards(FirebaseAuthGuard)
   @UseInterceptors(FileInterceptor('file'))
-  async processDocxWithGemini(
+  async processFileWithGemini(
     @UploadedFile() file: Express.Multer.File,
+    @Body('desiredQuestionCount') desiredQuestionCount: string,
     @Req() req: any,
   ) {
     const userId = req.user.userId;
@@ -199,7 +206,25 @@ export class QuizController {
     // Kiểm tra quyền xử lý file (chỉ admin hoặc premium user)
     await this.checkPremiumAccess(userId, 'xử lý file với AI');
 
-    return this.quizService.processDocxWithGemini(file);
+    // Parse question count if provided
+    const questionCount = desiredQuestionCount
+      ? parseInt(desiredQuestionCount, 10)
+      : undefined;
+
+    return this.quizService.processFileWithGemini(file, questionCount);
+  }
+
+  // Keep backward compatibility with old endpoint name
+  @Post('process-docx')
+  @UseGuards(FirebaseAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async processDocxWithGeminiLegacy(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('desiredQuestionCount') desiredQuestionCount: string,
+    @Req() req: any,
+  ) {
+    // Redirect to new endpoint
+    return this.processFileWithGemini(file, desiredQuestionCount, req);
   }
 
   /**

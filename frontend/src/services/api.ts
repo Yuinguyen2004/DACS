@@ -23,7 +23,8 @@ import {
   Notification,
   LeaderboardEntry,
   UserStats,
-  QuizStats
+  QuizStats,
+  ChangePasswordDto
 } from '../types/types';
 
 // API Configuration
@@ -262,33 +263,95 @@ export const quizAPI = {
     return response.data;
   },
 
-  async processDocxWithGemini(file: File): Promise<{
+  async processFileWithGemini(file: File, desiredQuestionCount?: number): Promise<{
     questions: Array<{
       text: string;
       options: string[];
       correctAnswerIndex: number;
     }>;
+    title?: string;
+    description?: string;
+    totalQuestions?: number;
+    requestedCount?: number;
+    actualCount?: number;
   }> {
-    console.log('[QUIZ] Processing .docx file with Gemini:', file.name);
-    
+    console.log('[QUIZ] Processing file with Gemini:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      desiredQuestionCount,
+    });
+
+    // Validate file type on frontend
+    const allowedTypes = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/pdf',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      throw new Error('Chỉ hỗ trợ file .docx hoặc .pdf');
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('File quá lớn. Kích thước tối đa là 5MB.');
+    }
+
+    // Validate desired question count
+    if (desiredQuestionCount !== undefined && desiredQuestionCount !== null) {
+      if (desiredQuestionCount < 5 || desiredQuestionCount > 100) {
+        throw new Error('Số lượng câu hỏi phải nằm trong khoảng 5-100.');
+      }
+    }
+
     const formData = new FormData();
     formData.append('file', file);
-    
+    if (desiredQuestionCount) {
+      formData.append('desiredQuestionCount', desiredQuestionCount.toString());
+    }
+
     const response = await api.post<{
       questions: Array<{
         text: string;
         options: string[];
         correctAnswerIndex: number;
       }>;
-    }>('/quizzes/process-docx', formData, {
+      title?: string;
+      description?: string;
+      totalQuestions?: number;
+      requestedCount?: number;
+      actualCount?: number;
+    }>('/quizzes/process-file', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 60000, // 60 seconds for Gemini processing
+      timeout: 120000, // 120 seconds for large PDF processing
     });
-    
-    console.log('[QUIZ] Gemini processing completed, found', response.data.questions.length, 'questions');
+
+    console.log('[QUIZ] Gemini processing completed:', {
+      questionCount: response.data.questions.length,
+      requestedCount: response.data.requestedCount,
+      actualCount: response.data.actualCount,
+      title: response.data.title,
+    });
+
     return response.data;
+  },
+
+  // Keep legacy method name for backward compatibility
+  async processDocxWithGemini(file: File, desiredQuestionCount?: number): Promise<{
+    questions: Array<{
+      text: string;
+      options: string[];
+      correctAnswerIndex: number;
+    }>;
+    title?: string;
+    description?: string;
+    totalQuestions?: number;
+    requestedCount?: number;
+    actualCount?: number;
+  }> {
+    return this.processFileWithGemini(file, desiredQuestionCount);
   }
 };
 
@@ -388,6 +451,31 @@ export const testAttemptAPI = {
     console.log('[TEST] Abandoning test attempt:', id);
     const response = await api.post<{success: boolean; message: string}>(`/test-attempts/abandon/${id}`);
     return response.data;
+  },
+
+  // New methods for resume quiz feature
+  async getActiveAttempt(quizId: string): Promise<any> {
+    console.log('[TEST] Fetching active attempt for quiz:', quizId);
+    const response = await api.get(`/test-attempts/active?quiz_id=${quizId}`);
+    return response.data;
+  },
+
+  async heartbeat(attemptId: string): Promise<{remainingSeconds: number | null; status: string; last_seen_at: string}> {
+    console.log('[TEST] Sending heartbeat for attempt:', attemptId);
+    const response = await api.post(`/test-attempts/${attemptId}/heartbeat`);
+    return response.data;
+  },
+
+  async saveAnswers(attemptId: string, answers: Array<{question_id: string; selected_answer_id: string; client_seq: number}>): Promise<{success: boolean; saved_count: number; remainingSeconds: number | null}> {
+    console.log('[TEST] Saving answers for attempt:', attemptId, 'Count:', answers.length);
+    const response = await api.patch(`/test-attempts/${attemptId}/answers`, { answers });
+    return response.data;
+  },
+
+  async resume(resumeToken: string): Promise<any> {
+    console.log('[TEST] Resuming attempt with token');
+    const response = await api.post('/test-attempts/resume', { resume_token: resumeToken });
+    return response.data;
   }
 };
 
@@ -404,6 +492,13 @@ export const userAPI = {
     console.log('[USER] Updating user profile');
     const response = await api.patch<User>('/users/profile', data);
     console.log('[USER] Profile updated successfully');
+    return response.data;
+  },
+
+  async changePassword(userId: string, payload: ChangePasswordDto): Promise<{ message: string }> {
+    console.log('[USER] Changing password for user:', userId);
+    const response = await api.patch(`/users/${userId}/password`, payload);
+    console.log('[USER] Password changed successfully');
     return response.data;
   },
 
@@ -526,8 +621,27 @@ export const paymentAPI = {
 export const notificationAPI = {
   async getMyNotifications(): Promise<Notification[]> {
     console.log('[NOTIFICATION] Fetching notifications');
-    const response = await api.get<ApiResponse<Notification[]>>('/notifications/my-notifications');
-    return response.data.data!;
+    const response = await api.get('/notifications/my-notifications');
+    const responseData = response.data;
+
+    // Backend currently returns either { data: [...] } or { notifications: [...] }
+    if (Array.isArray(responseData)) {
+      return responseData as Notification[];
+    }
+
+    if (responseData?.data && Array.isArray(responseData.data)) {
+      return responseData.data as Notification[];
+    }
+
+    if (
+      responseData?.notifications &&
+      Array.isArray(responseData.notifications)
+    ) {
+      return responseData.notifications as Notification[];
+    }
+
+    console.warn('[NOTIFICATION] Unexpected response format:', responseData);
+    return [];
   },
 
   async markAsRead(notificationIds: string[]): Promise<void> {
@@ -562,7 +676,16 @@ export const userUtils = {
    * @returns boolean - true if user has premium package
    */
   hasPremiumAccess(user: User | null): boolean {
-    if (!user || !user.package_id) return false;
+    if (!user) return false;
+    
+    // Admin luôn có quyền premium (không cần mua gói)
+    if (user.role === 'admin') return true;
+    
+    // Teacher cũng được coi là có quyền premium
+    if (user.role === 'teacher') return true;
+    
+    // Kiểm tra package_id
+    if (!user.package_id) return false;
     
     // If package_id is 'guest', user doesn't have premium
     if (user.package_id === 'guest') return false;

@@ -18,8 +18,15 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string) {
+    // Validate input
+    if (!email || !password) {
+      throw new UnauthorizedException('Email and password are required');
+    }
+
     const user = await this.usersService.findByEmail(email);
-    if (!user) throw new UnauthorizedException('User not found');
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
 
     // Check if user has a password (not a Firebase-only user)
     if (!user.password_hash) {
@@ -29,7 +36,9 @@ export class AuthService {
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
-    if (!isMatch) throw new UnauthorizedException('Wrong password');
+    if (!isMatch) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
     return user;
   }
 

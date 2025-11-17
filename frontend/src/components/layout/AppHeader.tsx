@@ -165,7 +165,8 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
     if (isLoggedIn && user) {
       try {
         const notifications = await notificationAPI.getMyNotifications()
-        const count = notifications.filter(n => !n.isRead).length
+        // Add null check to prevent undefined filter error
+        const count = (notifications || []).filter(n => !n.isRead).length
         setUnreadCount(count)
       } catch (error) {
         console.error('Failed to fetch notifications:', error)
@@ -207,7 +208,6 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
       { name: "Trang chủ", to: "/homepage" },
       { name: "Bài quiz của tôi", to: "/manage" },
       { name: "Lịch sử", to: "/history" },
-      { name: "Thông báo", to: "/notifications" },
       { name: "Nâng cấp", to: "/upgrade" },
     ]
 

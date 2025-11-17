@@ -1,14 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronLeft, ChevronRight, Clock, BookOpen, Check, Loader2, AlertCircle } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, BookOpen, Check, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { useNavigate, useLocation } from "react-router-dom"
-import { quizAPI, questionAPI, testAttemptAPI } from "../../services/api"
+import { quizAPI, testAttemptAPI } from "../../services/api"
 import { QuizWithDetails, QuestionWithAnswers, TestAttempt, TestAttemptAnswer } from "../../types/types"
 
 export default function QuizTakingPage() {
@@ -28,25 +28,72 @@ export default function QuizTakingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
   const hasStartedAttemptRef = useRef(false)
+  
+  // Resume quiz feature state
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [clientSeqMap, setClientSeqMap] = useState<Record<string, number>>({})
+  const [pendingAnswers, setPendingAnswers] = useState<Set<string>>(new Set())
+  const [resumedFromStorage, setResumedFromStorage] = useState(false)
+  
+  // Refs for timers
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Heartbeat effect - sync time and status every 15 seconds
+  useEffect(() => {
+    if (!testAttempt?._id || isCompleted || isSubmitting) return
+    
+    const heartbeat = async () => {
+      try {
+        const response = await testAttemptAPI.heartbeat(testAttempt._id)
+        
+        // Sync time from server (server is authoritative)
+        if (response.remainingSeconds !== null) {
+          setTimeLeft(response.remainingSeconds)
+        }
+        
+        // Check if attempt was completed elsewhere
+        if (response.status !== 'in_progress') {
+          if (heartbeatIntervalRef.current) {
+            clearInterval(heartbeatIntervalRef.current)
+          }
+        }
+      } catch (error) {
+        console.error('❌ Heartbeat failed:', error)
+      }
+    }
+    
+    // Run heartbeat every 15 seconds
+    heartbeatIntervalRef.current = setInterval(heartbeat, 15000)
+    
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current)
+      }
+    }
+  }, [testAttempt, isCompleted, isSubmitting])
 
   // Alternative navigation blocking using beforeunload and popstate events
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (testAttempt && !isSubmitting && !isCompleted) {
-        // Mark attempt as abandoned when user closes/refreshes page
-        testAttemptAPI.abandonAttempt(testAttempt._id).catch(console.error)
+        // Flush pending saves
+        if (pendingAnswers.size > 0) {
+          flushPendingAnswers()
+        }
         
-        // Show warning to user
+        // Don't abandon - now with resume feature, they can come back
+        // Just show warning
         e.preventDefault()
-        e.returnValue = 'Bạn có chắc muốn rời khỏi trang? Bài kiểm tra sẽ bị hủy.'
-        return 'Bạn có chắc muốn rời khỏi trang? Bài kiểm tra sẽ bị hủy.'
+        e.returnValue = 'Bài kiểm tra của bạn sẽ được lưu tự động. Bạn có thể quay lại sau.'
+        return 'Bài kiểm tra của bạn sẽ được lưu tự động. Bạn có thể quay lại sau.'
       }
     }
 
     const handlePopState = () => {
-      if (testAttempt && !isSubmitting && !isCompleted) {
-        // Mark attempt as abandoned when user navigates back
-        testAttemptAPI.abandonAttempt(testAttempt._id).catch(console.error)
+      if (testAttempt && !isSubmitting && !isCompleted && pendingAnswers.size > 0) {
+        // Flush pending saves
+        flushPendingAnswers()
       }
     }
 
@@ -59,14 +106,107 @@ export default function QuizTakingPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('popstate', handlePopState)
       
-      // If component unmounts and test is still in progress, mark as abandoned
-      if (testAttempt && !isSubmitting && !isCompleted) {
-        testAttemptAPI.abandonAttempt(testAttempt._id).catch(console.error)
+      // Flush any pending saves on unmount
+      if (testAttempt && !isSubmitting && !isCompleted && pendingAnswers.size > 0) {
+        flushPendingAnswers()
       }
     }
-  }, [testAttempt, isSubmitting, isCompleted])
+  }, [testAttempt, isSubmitting, isCompleted, pendingAnswers])
 
-  // Initialize quiz and start test attempt
+  // Flush pending answers before unmount or navigation
+  const flushPendingAnswers = async () => {
+    if (pendingAnswers.size === 0 || !testAttempt) return
+    
+    setSaveStatus('saving')
+    
+    try {
+      const answersToSave = Array.from(pendingAnswers).map(questionId => ({
+        question_id: questionId,
+        selected_answer_id: selectedAnswers[questionId],
+        client_seq: clientSeqMap[questionId] || 1
+      }))
+      
+      await testAttemptAPI.saveAnswers(testAttempt._id, answersToSave)
+      
+      setPendingAnswers(new Set())
+      setSaveStatus('saved')
+      
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    } catch (error) {
+      console.error('❌ Failed to save answers:', error)
+      setSaveStatus('error')
+    }
+  }
+
+  // Try to resume existing attempt
+  const attemptToResume = async (): Promise<boolean> => {
+    if (!quizId) return false
+    
+    const storedAttempt = localStorage.getItem(`quiz_attempt_${quizId}`)
+    
+    if (storedAttempt) {
+      try {
+        const { attemptId, resumeToken: token } = JSON.parse(storedAttempt)
+        console.log('🔄 Found stored attempt, trying to resume:', attemptId)
+        
+        let resumeData
+        try {
+          resumeData = await testAttemptAPI.getActiveAttempt(quizId)
+          console.log('✅ Resumed via getActiveAttempt')
+        } catch {
+          resumeData = await testAttemptAPI.resume(token)
+          console.log('✅ Resumed via resume token')
+        }
+        
+        // Restore state
+        setTestAttempt({
+          _id: resumeData.attempt_id,
+          quiz_id: quizId,
+          user_id: '',
+          started_at: resumeData.started_at,
+          status: 'in_progress',
+          total_questions: resumeData.total_questions,
+          answers: [],
+          score: 0,
+          completed_at: undefined,
+          time_taken: undefined,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as TestAttempt)
+        
+        setQuiz(resumeData.quiz)
+        setQuestions(resumeData.questions)
+        // Restore answers from draft_answers
+        const restoredAnswers: Record<string, string> = {}
+        const restoredSeq: Record<string, number> = {}
+        
+        resumeData.draft_answers?.forEach((draft: any) => {
+          restoredAnswers[draft.question_id] = draft.selected_answer_id
+          restoredSeq[draft.question_id] = draft.client_seq
+        })
+        
+        setSelectedAnswers(restoredAnswers)
+        setClientSeqMap(restoredSeq)
+        
+        // Set time from server (server-authoritative)
+        if (resumeData.remainingSeconds !== null) {
+          setTimeLeft(resumeData.remainingSeconds)
+          console.log('⏱️ Time remaining from server:', resumeData.remainingSeconds, 'seconds')
+        }
+
+        setIsLoading(false)
+        setResumedFromStorage(true)
+        return true
+      } catch (error) {
+        console.error('❌ Failed to resume:', error)
+        localStorage.removeItem(`quiz_attempt_${quizId}`)
+      }
+    }
+    
+    return false
+  }
+
+  // Initialize quiz and start test attempt (or resume)
   useEffect(() => {
     const initializeQuiz = async () => {
       if (!quizId) {
@@ -88,18 +228,25 @@ export default function QuizTakingPage() {
       try {
         console.log('🚀 Initializing quiz:', quizId)
         setIsLoading(true)
+        setResumedFromStorage(false)
 
-        // Fetch quiz details
+        // Try to resume first
+        const resumed = await attemptToResume()
+        if (resumed) {
+          console.log('✅ Successfully resumed existing attempt')
+          return
+        }
+
+        // Start new attempt
         console.log('📚 Fetching quiz details...')
         const quizData = await quizAPI.getQuizById(quizId)
         console.log('✅ Quiz loaded:', quizData.title)
         setQuiz(quizData)
 
-        // Start test attempt
-        console.log('🏁 Starting test attempt...')
-        const startResponse = await testAttemptAPI.startTestAttempt({
+        console.log('🏁 Starting new test attempt...')
+        const startResponse: any = await testAttemptAPI.startTestAttempt({
           quiz_id: quizId,
-          total_questions: 0 // Will be updated from start response
+          total_questions: 0
         })
         console.log('✅ Test attempt started:', startResponse.attempt_id)
         
@@ -111,7 +258,6 @@ export default function QuizTakingPage() {
           } as QuizWithDetails)
         }
         
-        // Use questions from start response instead of separate fetch
         if (startResponse.questions) {
           console.log('✅ Questions from start response:', startResponse.questions.length, 'questions')
           setQuestions(startResponse.questions)
@@ -121,28 +267,40 @@ export default function QuizTakingPage() {
         const testAttempt = {
           _id: startResponse.attempt_id,
           quiz_id: quizId,
-          user_id: '', // Will be populated by backend
+          user_id: '',
           started_at: startResponse.started_at,
-          status: 'in_progress' as const,
+          status: 'in_progress',
           total_questions: startResponse.total_questions,
           answers: [],
           score: 0,
-          completed_at: null,
-          time_taken: null
-        }
+          completed_at: undefined,
+          time_taken: undefined,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        } as TestAttempt
 
         setTestAttempt(testAttempt)
+        // Persist to localStorage
+        localStorage.setItem(`quiz_attempt_${quizId}`, JSON.stringify({
+          attemptId: startResponse.attempt_id,
+          resumeToken: startResponse.resume_token,
+          quizId: quizId,
+          startedAt: startResponse.started_at
+        }))
+        console.log('💾 Attempt persisted to localStorage')
 
-        // Set timer - convert minutes to seconds
-        if (startResponse.quiz?.time_limit) {
+        // Set timer from server (server-authoritative)
+        if (startResponse.remainingSeconds !== null) {
+          setTimeLeft(startResponse.remainingSeconds)
+          console.log('⏱️ Timer set from server:', startResponse.remainingSeconds, 'seconds')
+        } else if (startResponse.quiz?.time_limit) {
           const timeInSeconds = startResponse.quiz.time_limit * 60
-          console.log('⏱️ Setting timer to', startResponse.quiz.time_limit, 'minutes (', timeInSeconds, 'seconds)')
+          console.log('⏱️ Setting timer to', startResponse.quiz.time_limit, 'minutes')
           setTimeLeft(timeInSeconds)
         }
 
       } catch (error: any) {
         console.error('❌ Failed to initialize quiz:', error)
-        // Reset flag on error so user can retry
         hasStartedAttemptRef.current = false
         if (error.response?.status === 404) {
           setError("Quiz không tồn tại")
@@ -193,10 +351,30 @@ export default function QuizTakingPage() {
     const currentQuestion = questions[currentQuestionIndex]
     console.log('📝 Answer selected:', { questionId: currentQuestion._id, answerId })
     
+    // Update local state
     setSelectedAnswers(prev => ({
       ...prev,
       [currentQuestion._id]: answerId
     }))
+    
+    // Track pending save
+    setPendingAnswers(prev => new Set(prev).add(currentQuestion._id))
+    
+    // Increment client sequence
+    setClientSeqMap(prev => ({
+      ...prev,
+      [currentQuestion._id]: (prev[currentQuestion._id] || 0) + 1
+    }))
+    
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    
+    // Schedule save after 500ms of inactivity (debounce)
+    saveTimeoutRef.current = setTimeout(() => {
+      flushPendingAnswers()
+    }, 500)
   }
 
   const handleNextQuestion = () => {
@@ -223,6 +401,12 @@ export default function QuizTakingPage() {
       console.log('📤 Submitting quiz answers...')
       setIsSubmitting(true)
 
+      // Flush any pending saves before submitting
+      if (pendingAnswers.size > 0) {
+        console.log('💾 Flushing pending answers before submit...')
+        await flushPendingAnswers()
+      }
+
       // Prepare answers in the correct format
       const answers: TestAttemptAnswer[] = Object.entries(selectedAnswers).map(([questionId, answerId]) => {
         const question = questions.find(q => q._id === questionId)
@@ -236,14 +420,28 @@ export default function QuizTakingPage() {
       })
 
       console.log('📊 Submitting', answers.length, 'answers')
-      const result = await testAttemptAPI.submitTestAttempt(testAttempt._id, { answers })
+      const result: any = await testAttemptAPI.submitTestAttempt(testAttempt._id, { answers })
       console.log('✅ Quiz submitted successfully. Score:', result.score)
 
       // Mark as completed to prevent abandonment logic
       setIsCompleted(true)
 
+      // Clear localStorage
+      if (quizId) {
+        localStorage.removeItem(`quiz_attempt_${quizId}`)
+        console.log('🗑️ Cleared localStorage')
+      }
+
+      // Clear intervals
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current)
+      }
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+
       // Navigate to results page
-      navigate(`/result?attemptId=${result.attempt_id}`)
+      navigate(`/result?attemptId=${result.attempt_id || testAttempt._id}`)
 
     } catch (error: any) {
       console.error('❌ Failed to submit quiz:', error)
@@ -309,6 +507,17 @@ export default function QuizTakingPage() {
   return (
     <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-4xl mx-auto px-4">
+        {resumedFromStorage && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 text-green-600" />
+            <div>
+              <p className="text-sm font-semibold text-green-900">Quiz Resumption Successful</p>
+              <p className="text-sm text-green-700">
+                Tiến trình của bạn đã được khôi phục. Bạn đang tiếp tục từ câu hỏi {Math.min(currentQuestionIndex + 1, questions.length)} trong tổng số {questions.length} câu.
+              </p>
+            </div>
+          </div>
+        )}
         {/* Quiz Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -316,14 +525,40 @@ export default function QuizTakingPage() {
               <BookOpen className="w-6 h-6 text-blue-600" />
               <h1 className="text-2xl font-bold text-gray-800">{quiz.title}</h1>
             </div>
-            {timeLeft > 0 && (
-              <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm">
-                <Clock className="w-5 h-5 text-orange-500" />
-                <span className="text-lg font-mono font-semibold text-gray-800">
-                  {formatTime(timeLeft)}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center space-x-4">
+              {/* Save Status Indicator */}
+              {saveStatus !== 'idle' && (
+                <div className="flex items-center space-x-2 bg-white px-3 py-2 rounded-lg shadow-sm">
+                  {saveStatus === 'saving' && (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                      <span className="text-sm text-gray-600">Đang lưu...</span>
+                    </>
+                  )}
+                  {saveStatus === 'saved' && (
+                    <>
+                      <Check className="h-4 w-4 text-green-600" />
+                      <span className="text-sm text-green-600">Đã lưu</span>
+                    </>
+                  )}
+                  {saveStatus === 'error' && (
+                    <>
+                      <AlertCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-sm text-red-600">Lỗi lưu</span>
+                    </>
+                  )}
+                </div>
+              )}
+              {/* Timer */}
+              {timeLeft > 0 && (
+                <div className="flex items-center space-x-2 bg-white px-4 py-2 rounded-lg shadow-sm">
+                  <Clock className="w-5 h-5 text-orange-500" />
+                  <span className="text-lg font-mono font-semibold text-gray-800">
+                    {formatTime(timeLeft)}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Progress */}
@@ -395,7 +630,8 @@ export default function QuizTakingPage() {
             <span>Câu trước</span>
           </Button>
 
-          <div className="flex items-center space-x-2">
+        <div className="flex-1 mx-4 overflow-x-auto">
+          <div className="flex items-center space-x-2 min-w-max">
             {questions.map((_, index) => (
               <button
                 key={index}
@@ -412,6 +648,7 @@ export default function QuizTakingPage() {
               </button>
             ))}
           </div>
+        </div>
 
           {currentQuestionIndex === questions.length - 1 ? (
             <Button

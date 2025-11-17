@@ -9,4 +9,7 @@ export class StartTestResponseDto {
   questions: any[];
   total_questions: number;
   started_at: string;
+  remainingSeconds: number | null;
+  resume_token: string;
+  draft_answers?: any[];
 }

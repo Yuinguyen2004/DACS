@@ -19,12 +19,21 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
-  @UsePipes(new ValidationPipe())
+  @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
   async login(@Body() dto: LoginDto) {
+    // Validate DTO fields exist
+    if (!dto.email || !dto.password) {
+      throw new UnauthorizedException('Email and password are required');
+    }
+    
     try {
       return await this.authService.login(dto.email, dto.password);
     } catch (error) {
-      throw new UnauthorizedException(error.message);
+      // Ensure proper error propagation - don't allow fallback
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException(error.message || 'Authentication failed');
     }
   }
 

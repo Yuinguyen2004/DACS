@@ -24,6 +24,8 @@ interface IExtractedQuiz {
   image?: string;
   time_limit?: number;
   questions: IExtractedQuestion[];
+  requestedCount?: number; // How many questions were requested
+  actualCount?: number; // How many questions were actually generated
 }
 
 // Định nghĩa interface cho từng câu hỏi trích xuất
@@ -197,10 +199,15 @@ export class QuizService {
    * Quy trình: Đọc file -> Gửi text lên Gemini AI -> Tạo quiz và câu hỏi
    * @param file - File upload từ client (Express.Multer.File)
    * @param userId - ID của user thực hiện import
+   * @param desiredQuestionCount - Optional: Desired number of questions (5-100)
    * @returns Promise<object> - Thông tin quiz đã tạo và số lượng câu hỏi
    * @throws BadRequestException - Khi file không đúng định dạng
    */
-  async importQuizFromFile(file: Express.Multer.File, userId: string) {
+  async importQuizFromFile(
+    file: Express.Multer.File,
+    userId: string,
+    desiredQuestionCount?: number,
+  ) {
     // Validate file size (5MB limit)
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     if (file.size > MAX_FILE_SIZE) {
@@ -216,22 +223,56 @@ export class QuizService {
       throw new BadRequestException('Chỉ hỗ trợ file .docx hoặc .pdf');
     }
 
-    // 1. Đọc text từ file dựa trên phần mở rộng
+    // 1. Đọc text từ file dựa trên MIME type (not extension)
     let rawText = '';
-    if (file.originalname.endsWith('.docx')) {
-      // Sử dụng mammoth để đọc file .docx
-      const result = await mammoth.extractRawText({ buffer: file.buffer });
-      rawText = result.value;
-    } else if (file.originalname.endsWith('.pdf')) {
-      // Sử dụng pdf-parse để đọc file .pdf
-      const result = await pdfParse(file.buffer);
-      rawText = result.text;
-    } else {
-      throw new BadRequestException('Chỉ hỗ trợ file .docx hoặc .pdf');
+    try {
+      if (file.mimetype === 'application/pdf') {
+        console.log('[IMPORT] Extracting text from PDF...');
+        const result = await pdfParse(file.buffer);
+        rawText = result.text;
+      } else if (
+        file.mimetype ===
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ) {
+        console.log('[IMPORT] Extracting text from DOCX...');
+        const result = await mammoth.extractRawText({ buffer: file.buffer });
+        rawText = result.value;
+      } else {
+        throw new BadRequestException('Chỉ hỗ trợ file .docx hoặc .pdf');
+      }
+    } catch (extractError) {
+      if (extractError instanceof BadRequestException) {
+        throw extractError;
+      }
+      console.error('[IMPORT] Text extraction failed:', extractError);
+      throw new BadRequestException(
+        'Không thể đọc nội dung file. Vui lòng đảm bảo file không bị mã hóa hoặc hỏng.',
+      );
+    }
+
+    // Validate extracted text
+    if (!rawText || rawText.trim().length < 50) {
+      const fileType = file.mimetype.includes('pdf') ? 'PDF' : 'DOCX';
+      throw new BadRequestException(
+        `File ${fileType} không chứa đủ nội dung văn bản. ` +
+        `Vui lòng kiểm tra file có văn bản có thể đọc được.`,
+      );
+    }
+
+    // Validate desired question count if provided
+    if (desiredQuestionCount !== undefined && desiredQuestionCount !== null) {
+      if (desiredQuestionCount < 5 || desiredQuestionCount > 100) {
+        throw new BadRequestException(
+          'Số lượng câu hỏi mong muốn phải nằm trong khoảng 5-100.',
+        );
+      }
     }
 
     // Gọi hàm extract, nhận về object thay vì mảng
-    const aiQuizObj = await this.extractQuizFromTextGemini(rawText);
+    const aiQuizObj = await this.extractQuizFromTextGemini(
+      rawText,
+      desiredQuestionCount,
+    );
 
     // Validate time_limit from AI response
     let validatedTimeLimit = aiQuizObj.time_limit ?? null;
@@ -280,40 +321,92 @@ export class QuizService {
 
     return {
       message: 'Tạo quiz thành công!',
-      totalQuestions: aiQuizObj.questions?.length || 0,
+      totalQuestions: aiQuizObj.actualCount || aiQuizObj.questions?.length || 0,
+      requestedCount: aiQuizObj.requestedCount,
+      actualCount: aiQuizObj.actualCount,
     };
   }
 
   /**
-   * Process .docx file with Gemini AI and return questions data without saving to database
-   * For frontend form population
+   * Process .docx or .pdf file with Gemini AI and return questions data without saving to database
+   * For frontend form population (preview before save)
    * @param file - File upload từ client (Express.Multer.File)
+   * @param desiredQuestionCount - Optional: Desired number of questions (5-100)
    * @returns Promise<object> - Questions data for frontend
    */
-  async processDocxWithGemini(file: Express.Multer.File) {
+  async processFileWithGemini(
+    file: Express.Multer.File,
+    desiredQuestionCount?: number,
+  ) {
     // Validate file size (5MB limit)
     const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     if (file.size > MAX_FILE_SIZE) {
       throw new BadRequestException('File quá lớn. Kích thước tối đa là 5MB.');
     }
 
-    // Validate MIME type - only .docx for this endpoint
-    if (file.mimetype !== 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-      throw new BadRequestException('Chỉ hỗ trợ file .docx cho chức năng này.');
+    // Validate MIME type - accept both .docx and .pdf
+    const allowedMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+      'application/pdf', // .pdf
+    ];
+
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException('Chỉ hỗ trợ file .docx hoặc .pdf.');
     }
 
-    // Read text from .docx file
+    // Read text from file based on type
     let rawText = '';
-    const result = await mammoth.extractRawText({ buffer: file.buffer });
-    rawText = result.value;
+    try {
+      if (file.mimetype === 'application/pdf') {
+        console.log('[FILE_PROCESSING] Extracting text from PDF...');
+        const result = await pdfParse(file.buffer);
+        rawText = result.text;
+      } else {
+        console.log('[FILE_PROCESSING] Extracting text from DOCX...');
+        const result = await mammoth.extractRawText({ buffer: file.buffer });
+        rawText = result.value;
+      }
+    } catch (extractError) {
+      console.error('[FILE_PROCESSING] Text extraction failed:', extractError);
+      throw new BadRequestException(
+        'Không thể đọc nội dung file. Vui lòng đảm bảo: ' +
+        '1) File không bị mã hóa hoặc bảo vệ mật khẩu, ' +
+        '2) Nếu là PDF, phải chứa văn bản thật (không phải ảnh scan), ' +
+        '3) File không bị hỏng.',
+      );
+    }
+
+    // Validate extracted text
+    if (!rawText || rawText.trim().length < 50) {
+      const fileType = file.mimetype.includes('pdf') ? 'PDF' : 'DOCX';
+      throw new BadRequestException(
+        `File ${fileType} không chứa đủ nội dung văn bản (tối thiểu 50 ký tự). ` +
+        `Đã trích xuất: ${rawText.length} ký tự. ` +
+        `Vui lòng kiểm tra file có chứa văn bản có thể đọc được.`,
+      );
+    }
+
+    console.log('[FILE_PROCESSING] Extracted text length:', rawText.length);
+
+    // Validate desired question count if provided
+    if (desiredQuestionCount !== undefined && desiredQuestionCount !== null) {
+      if (desiredQuestionCount < 5 || desiredQuestionCount > 100) {
+        throw new BadRequestException(
+          'Số lượng câu hỏi mong muốn phải nằm trong khoảng 5-100.',
+        );
+      }
+    }
 
     // Process with Gemini AI
-    const aiQuizObj = await this.extractQuizFromTextGemini(rawText);
+    const aiQuizObj = await this.extractQuizFromTextGemini(
+      rawText,
+      desiredQuestionCount,
+    );
 
     // Validate extracted data
     if (!aiQuizObj.questions || aiQuizObj.questions.length === 0) {
       throw new BadRequestException(
-        'Không tìm thấy câu hỏi nào trong file. Vui lòng kiểm tra nội dung file.',
+        'Không tìm thấy câu hỏi nào trong file. Vui lòng kiểm tra định dạng nội dung.',
       );
     }
 
@@ -321,26 +414,37 @@ export class QuizService {
     const questions = aiQuizObj.questions.map((q, index) => ({
       text: q.questionText,
       options: q.options,
-      correctAnswerIndex: q.options.findIndex(opt => opt === q.correctAnswer)
+      correctAnswerIndex: q.options.findIndex((opt) => opt === q.correctAnswer),
     }));
+
+    // Log success
+    console.log('[FILE_PROCESSING] Successfully processed file:', {
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      questionCount: questions.length,
+    });
 
     return {
       questions: questions,
       totalQuestions: questions.length,
+      requestedCount: aiQuizObj.requestedCount,
+      actualCount: aiQuizObj.actualCount,
       title: aiQuizObj.title || file.originalname.replace(/\.[^/.]+$/, ''),
-      description: aiQuizObj.description || 'Quiz được tạo từ Gemini AI'
+      description: aiQuizObj.description || 'Quiz được tạo từ Gemini AI',
     };
   }
 
   /**
    * Private method: Sử dụng Gemini AI để trích xuất câu hỏi từ text
    * @param rawText - Nội dung text được đọc từ file
+   * @param desiredQuestionCount - Số lượng câu hỏi mong muốn (optional, 5-100)
    * @returns Promise<IExtractedQuestion[]> - Mảng các câu hỏi đã được trích xuất
    * @throws Error - Khi không có GEMINI_API_KEY
    * @throws InternalServerErrorException - Khi có lỗi trong quá trình xử lý AI
    */
   private async extractQuizFromTextGemini(
     rawText: string,
+    desiredQuestionCount?: number,
   ): Promise<IExtractedQuiz> {
     // Kiểm tra API key
     const API_KEY = process.env.GEMINI_API_KEY;
@@ -356,66 +460,185 @@ export class QuizService {
       model: 'gemini-2.5-flash',
     });
 
-    // Tạo prompt chi tiết cho AI
+    // Tạo prompt chi tiết cho AI với hướng dẫn cải tiến
+    const questionCountInstruction = desiredQuestionCount
+      ? `**TARGET QUESTION COUNT: ${desiredQuestionCount}**
+Generate approximately ${desiredQuestionCount} high-quality questions from this document.
+- If the document has fewer clear questions, create as many as possible (minimum quality threshold).
+- If the document has more content, select the ${desiredQuestionCount} most important/representative questions.
+`
+      : `**AUTOMATIC QUESTION COUNT:**
+Generate a reasonable number of questions based on the document length and content quality.
+- For short documents: 5-10 questions
+- For medium documents: 10-20 questions  
+- For long documents: 20-50 questions
+`;
+
     const prompt = `
-    Bạn là một trợ lý AI chuyên tạo bài kiểm tra, có nhiệm vụ phân tích nội dung văn bản và chuyển đổi nó thành một đối tượng JSON có cấu trúc. Mục tiêu của bạn là luôn tạo ra các câu hỏi trắc nghiệm (MCQ) hoàn chỉnh.
+You are an expert quiz creation AI. Your task is to analyze document content and convert it into fully-formed multiple-choice questions (MCQs).
 
-**Quy tắc xử lý logic:**
+${questionCountInstruction}
 
-Đối với mỗi câu hỏi, bạn phải xác định loại của nó và xử lý theo một trong hai trường hợp sau:
+**CRITICAL RULES:**
 
-1.  **Trường hợp 1: Câu hỏi đã có sẵn lựa chọn (A, B, C, D...)**
-    * Trích xuất chính xác nội dung câu hỏi, các lựa chọn đã cho, đáp án đúng và lời giải thích (nếu có).
+1. **ALWAYS generate complete MCQs with:**
+   - Question text (clear, unambiguous)
+   - Exactly 4 options (no more, no less)
+   - One correct answer
+   - Brief explanation (2-3 sentences)
 
-2.  **Trường hợp 2: Câu hỏi chỉ có đáp án đúng (dạng điền vào chỗ trống hoặc trả lời ngắn)**
-    * **Bước 1:** Xác định nội dung câu hỏi và đáp án đúng đã được cung cấp.
-    * **Bước 2:** **Tự tạo ra 3 lựa chọn "mồi nhử" (distractors) SAI nhưng hợp lý.**
-        * Các lựa chọn mồi nhử này phải **cùng chủ đề** và **cùng loại** với đáp án đúng. (Ví dụ: Nếu đáp án đúng là một thành phố, các lựa chọn sai cũng phải là tên các thành phố khác).
-        * Các lựa chọn mồi nhử phải được tạo ra một cách thông minh, không được ngớ ngẩn hoặc quá rõ ràng là sai.
-    * **Bước 3:** Tạo một mảng "options" gồm 4 phần tử: 1 đáp án đúng ban đầu và 3 lựa chọn mồi nhử vừa tạo. Bạn có thể xáo trộn thứ tự của các phần tử trong mảng này.
-    * **Bước 4:** Gán "questionType" là "mcq".
+2. **If source has predefined options (A, B, C, D):**
+   - Extract them exactly as written
+   - Preserve the original wording
+   - Identify the correct answer from indicators like "Answer:", "*", "(correct)", etc.
 
-Dựa vào nội dung sau, hãy trích xuất thành object JSON với cấu trúc sau:
+3. **If source only has correct answer (fill-in-blank or short answer):**
+   - Identify the correct answer clearly
+   - Generate 3 high-quality distractors (wrong answers) that are:
+     * Same category/type as correct answer (e.g., if answer is a city, distractors must be cities)
+     * Plausible and believable (not obviously wrong)
+     * Contextually relevant to the question topic
+   - Example: If correct answer is "Paris", good distractors: "London", "Berlin", "Madrid"
+   - Example: If correct answer is "1945", good distractors: "1944", "1946", "1943"
+
+4. **For PDFs with images/tables/charts:**
+   - Extract text context around visual elements
+   - If question references a visual, indicate it: "Based on the chart/image above..."
+   - If visual content is unclear, focus on extractable text
+
+5. **Time limit extraction:**
+   - Look for phrases: "Time: 30 minutes", "Duration: 1 hour", "Complete in 45 mins"
+   - Convert to minutes (integer): "1 hour" → 60, "30 mins" → 30
+   - If not found or ambiguous, set to null
+
+6. **Question numbering:**
+   - Preserve original numbering if present
+   - If missing, auto-number sequentially from 1
+
+7. **Output format** (JSON only, NO markdown code fences):
 {
-  "title": "[Tiêu đề bài kiểm tra, nếu có]",
-  "description": "[Mô tả, nếu có]",
-  "time_limit": [số phút làm bài, nếu không có để null hoặc 0],
+  "title": "Quiz title from document or generate descriptive one",
+  "description": "Brief description of quiz content and topic",
+  "time_limit": number or null,
   "questions": [
     {
-      "questionNumber": number, // Số thứ tự câu hỏi 
-      "questionText": "string", // Nội dung câu hỏi
-      "questionType": "mcq" | "true_false", // Loại câu hỏi: trắc nghiệm hoặc đúng/sai
-      "options": ["string"], // Danh sách các lựa chọn, ít nhất 2 lựa chọn
-      "correctAnswer": "string", // Nội dung của đáp án đúng, phải khớp chính xác với một trong các options
-      "explanation": "string" // Giải thích cho đáp án, nếu có
+      "questionNumber": 1,
+      "questionText": "Clear, complete question text",
+      "questionType": "mcq",
+      "options": ["First option", "Second option", "Third option", "Fourth option"],
+      "correctAnswer": "First option",
+      "explanation": "Why this answer is correct and why others are incorrect"
     }
   ]
 }
 
-Chỉ trả về object JSON hợp lệ, không có markdown, không có ký tự thừa.
+**EXAMPLE 1 - Short Answer Format:**
 
-Nội dung cần xử lý:
+INPUT:
+---
+1. What is the capital of France?
+   Answer: Paris
+
+2. Who wrote "1984"?
+   Answer: George Orwell
+---
+
+EXPECTED OUTPUT:
+{
+  "title": "Geography and Literature Quiz",
+  "description": "Questions covering world capitals and famous authors",
+  "time_limit": null,
+  "questions": [
+    {
+      "questionNumber": 1,
+      "questionText": "What is the capital of France?",
+      "questionType": "mcq",
+      "options": ["Paris", "London", "Berlin", "Madrid"],
+      "correctAnswer": "Paris",
+      "explanation": "Paris is the capital and largest city of France, located on the Seine River in northern France."
+    },
+    {
+      "questionNumber": 2,
+      "questionText": "Who wrote the dystopian novel '1984'?",
+      "questionType": "mcq",
+      "options": ["George Orwell", "Aldous Huxley", "Ray Bradbury", "Kurt Vonnegut"],
+      "correctAnswer": "George Orwell",
+      "explanation": "George Orwell published '1984' in 1949, depicting a totalitarian surveillance state. Other authors wrote similar dystopian works but not this specific novel."
+    }
+  ]
+}
+
+**EXAMPLE 2 - Predefined Options:**
+
+INPUT:
+---
+Question 1: What is 2 + 2?
+A) 3
+B) 4
+C) 5
+D) 6
+Correct Answer: B
+---
+
+EXPECTED OUTPUT:
+{
+  "title": "Mathematics Quiz",
+  "description": "Basic arithmetic questions",
+  "time_limit": null,
+  "questions": [
+    {
+      "questionNumber": 1,
+      "questionText": "What is 2 + 2?",
+      "questionType": "mcq",
+      "options": ["3", "4", "5", "6"],
+      "correctAnswer": "4",
+      "explanation": "2 + 2 equals 4. This is a fundamental arithmetic operation."
+    }
+  ]
+}
+
+**Now process this content:**
 ---
 ${rawText}
 ---
+
+**Remember**: Return ONLY valid JSON. No markdown, no code fences, no extra text.
 `;
 
     try {
-      // Gửi request đến Gemini AI
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
+      // Add timeout for AI processing (90 seconds)
+      const AI_TIMEOUT = 90000;
+      const aiPromise = model.generateContent(prompt);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('AI_TIMEOUT')), AI_TIMEOUT),
+      );
+
+      // Race between AI response and timeout
+      const result = await Promise.race([aiPromise, timeoutPromise]);
+      const response = await (result as any).response;
       let jsonText = response.text();
 
+      // Remove markdown code fences and trim
       jsonText = jsonText.replace(/```json|```/g, '').trim();
 
-      // Parse JSON response từ AI với error handling
+      // Sanitize JSON text - remove control characters and fix common issues
+      jsonText = jsonText
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control chars
+        .replace(/,(\s*[}\]])/g, '$1') // Remove trailing commas
+        .trim();
+
+      // Parse JSON response from AI with enhanced error handling
       let parsedJson;
       try {
         parsedJson = JSON.parse(jsonText);
       } catch (parseError) {
-        console.error('Failed to parse AI response as JSON:', jsonText);
+        console.error('[AI_PARSE_ERROR] Failed to parse AI response:', {
+          error: parseError.message,
+          responsePreview: jsonText.substring(0, 500),
+          timestamp: new Date().toISOString(),
+        });
         throw new InternalServerErrorException(
-          'Phản hồi từ AI không đúng định dạng JSON. Vui lòng thử lại.',
+          'AI trả về dữ liệu không hợp lệ. Vui lòng thử lại hoặc kiểm tra nội dung file.',
         );
       }
 
@@ -424,15 +647,34 @@ ${rawText}
         throw new BadRequestException('AI response is not a valid object.');
       }
 
-      // Kiểm tra cơ bản: đảm bảo response có cấu trúc đúng
+      // Ensure questions array exists
       if (!parsedJson.questions || !Array.isArray(parsedJson.questions)) {
         throw new BadRequestException(
-          'API response không có mảng questions hợp lệ.',
+          'AI không tìm thấy câu hỏi nào trong file. Vui lòng kiểm tra định dạng nội dung.',
         );
       }
 
-      // Validate each question structure
+      // Validate and sanitize time_limit
+      if (parsedJson.time_limit !== null && parsedJson.time_limit !== undefined) {
+        const timeLimit = parseInt(parsedJson.time_limit);
+        if (isNaN(timeLimit) || timeLimit < 0) {
+          parsedJson.time_limit = null;
+        } else if (timeLimit > 480) {
+          parsedJson.time_limit = 480; // Cap at 8 hours
+        } else {
+          parsedJson.time_limit = timeLimit;
+        }
+      }
+
+      // Validate and sanitize each question
       for (const [index, question] of parsedJson.questions.entries()) {
+        // Sanitize question text
+        if (question.questionText) {
+          question.questionText = question.questionText
+            .trim()
+            .replace(/[\u0000-\u001F\u007F-\u009F]/g, ''); // Remove control chars
+        }
+
         // Check required fields
         if (
           !question.questionText ||
@@ -442,38 +684,133 @@ ${rawText}
           question.options.length < 2
         ) {
           throw new BadRequestException(
-            `Cấu trúc câu hỏi ${index + 1} không hợp lệ từ AI response.`,
+            `Câu hỏi ${index + 1} thiếu thông tin bắt buộc hoặc có cấu trúc không hợp lệ. ` +
+            `Cần: nội dung câu hỏi, loại câu hỏi, và ít nhất 2 lựa chọn.`,
           );
         }
 
+        // Ensure exactly 4 options for MCQ (AI should generate this)
+        if (question.questionType === 'mcq' && question.options.length !== 4) {
+          console.warn(
+            `[AI_VALIDATION] Question ${index + 1} has ${question.options.length} options, expected 4`,
+          );
+        }
+
+        // Validate question type
         if (!['mcq', 'true_false'].includes(question.questionType)) {
           throw new BadRequestException(
-            `Loại câu hỏi không được hỗ trợ ở câu ${index + 1}: ${question.questionType}`,
+            `Câu ${index + 1}: Loại câu hỏi không hợp lệ "${question.questionType}". ` +
+            `Chỉ hỗ trợ "mcq" hoặc "true_false".`,
           );
         }
 
-        // Validate correct answer exists in options
-        if (
-          !question.correctAnswer ||
-          !question.options.includes(question.correctAnswer)
-        ) {
+        // Auto-add explanation if missing
+        if (!question.explanation || question.explanation.trim() === '') {
+          question.explanation = 'Không có lời giải thích.';
+          console.warn(`[AI_VALIDATION] Added default explanation for Q${index + 1}`);
+        }
+
+        // Validate correctAnswer exists in options with fuzzy matching
+        const normalizedCorrect = question.correctAnswer?.trim().toLowerCase();
+        if (!normalizedCorrect) {
           throw new BadRequestException(
-            `Đáp án đúng của câu ${index + 1} không có trong danh sách lựa chọn.`,
+            `Câu ${index + 1}: Thiếu đáp án đúng.`,
           );
         }
 
-        // Validate question number
+        // Try exact match first
+        let matchingOption = question.options.find(
+          (opt) => opt.trim().toLowerCase() === normalizedCorrect,
+        );
+
+        // If no exact match, try fuzzy match
+        if (!matchingOption) {
+          matchingOption = question.options.find(
+            (opt) =>
+              opt.toLowerCase().includes(normalizedCorrect) ||
+              normalizedCorrect.includes(opt.toLowerCase()),
+          );
+
+          if (matchingOption) {
+            console.warn(
+              `[AI_VALIDATION] Auto-fixed correctAnswer mismatch in Q${index + 1}: ` +
+              `"${question.correctAnswer}" → "${matchingOption}"`,
+            );
+            question.correctAnswer = matchingOption;
+          } else {
+            throw new BadRequestException(
+              `Câu ${index + 1}: Đáp án đúng "${question.correctAnswer}" không khớp với các lựa chọn. ` +
+              `Lựa chọn có: ${question.options.join(', ')}`,
+            );
+          }
+        }
+
+        // Auto-fix question numbers
         if (
-          question.questionNumber &&
-          (typeof question.questionNumber !== 'number' ||
-            question.questionNumber < 1)
+          !question.questionNumber ||
+          typeof question.questionNumber !== 'number' ||
+          question.questionNumber < 1
         ) {
-          question.questionNumber = index + 1; // Auto-fix invalid question numbers
+          question.questionNumber = index + 1;
         }
       }
+
+      // Check for duplicate questions (log warning, don't fail)
+      const questionTexts = parsedJson.questions.map((q) =>
+        q.questionText.toLowerCase().trim(),
+      );
+      const duplicates = questionTexts.filter(
+        (text, idx) => questionTexts.indexOf(text) !== idx,
+      );
+
+      if (duplicates.length > 0) {
+        console.warn('[AI_VALIDATION] Found duplicate questions:', duplicates);
+      }
+
+      // Handle desired question count
+      const actualQuestionCount = parsedJson.questions.length;
+      let finalQuestions = parsedJson.questions;
+
+      if (desiredQuestionCount && actualQuestionCount > desiredQuestionCount) {
+        // AI generated more than requested - slice to desired count
+        finalQuestions = parsedJson.questions.slice(0, desiredQuestionCount);
+        console.log(
+          `[AI_QUESTION_COUNT] Sliced from ${actualQuestionCount} to ${desiredQuestionCount} questions`,
+        );
+      } else if (
+        desiredQuestionCount &&
+        actualQuestionCount < desiredQuestionCount
+      ) {
+        // AI generated fewer than requested - log warning but accept
+        console.warn(
+          `[AI_QUESTION_COUNT] Requested ${desiredQuestionCount} but only ${actualQuestionCount} could be generated`,
+        );
+      }
+
+      // Add metadata about question counts
+      parsedJson.questions = finalQuestions;
+      parsedJson.requestedCount = desiredQuestionCount;
+      parsedJson.actualCount = finalQuestions.length;
+
+      // Log success
+      console.log('[AI_SUCCESS] Successfully processed quiz:', {
+        title: parsedJson.title,
+        questionCount: finalQuestions.length,
+        requestedCount: desiredQuestionCount,
+        timeLimit: parsedJson.time_limit,
+      });
+
       return parsedJson;
     } catch (error) {
-      console.error('Error processing Gemini API response:', error);
+      console.error('[AI_ERROR] Error processing Gemini API response:', error);
+
+      // Handle specific error types
+      if (error.message === 'AI_TIMEOUT') {
+        throw new InternalServerErrorException(
+          'Xử lý AI mất quá nhiều thời gian (>90s). File có thể quá phức tạp. ' +
+          'Vui lòng thử: 1) Chia nhỏ file, 2) Đơn giản hóa định dạng, 3) Xóa hình ảnh không cần thiết.',
+        );
+      }
 
       if (error instanceof SyntaxError) {
         throw new InternalServerErrorException(
@@ -487,6 +824,12 @@ ${rawText}
         );
       }
 
+      // If it's already a BadRequestException or similar, rethrow it
+      if (error instanceof BadRequestException || error instanceof InternalServerErrorException) {
+        throw error;
+      }
+
+      // Generic error
       throw new InternalServerErrorException(
         'Không thể phân tích dữ liệu từ AI. Vui lòng thử lại với nội dung khác.',
       );

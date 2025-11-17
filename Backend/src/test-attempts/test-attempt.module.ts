@@ -7,7 +7,9 @@ import { Quiz, QuizSchema } from '../quizzes/quiz.schema';
 import { Question, QuestionSchema } from '../questions/question.schema';
 import { Answer, AnswerSchema } from '../answers/answer.schema';
 import { User, UserSchema } from '../users/user.schema';
+import { Package, PackageSchema } from '../packages/package.schema';
 import { LeaderboardModule } from '../leaderboards/leaderboard.module';
+import { NotificationModule } from '../notifications/notification.module';
 
 /**
  * Module chinh cua test-attempts
@@ -23,8 +25,10 @@ import { LeaderboardModule } from '../leaderboards/leaderboard.module';
       { name: Question.name, schema: QuestionSchema },
       { name: Answer.name, schema: AnswerSchema },
       { name: User.name, schema: UserSchema },
+      { name: Package.name, schema: PackageSchema },
     ]),
     LeaderboardModule,
+    NotificationModule,
   ],
   controllers: [TestAttemptController],
   providers: [TestAttemptService],

@@ -169,6 +169,7 @@ export default function CreateQuizPage() {
   const [isProcessingWithGemini, setIsProcessingWithGemini] = useState(false)
   const [editQuizId, setEditQuizId] = useState<string | null>(null)
   const [isLoadingQuiz, setIsLoadingQuiz] = useState(false)
+  const [desiredQuestionCount, setDesiredQuestionCount] = useState<number | null>(null)
 
   // Check authentication and premium access on mount
   useEffect(() => {
@@ -355,13 +356,38 @@ export default function CreateQuizPage() {
   const handleGeminiProcessing = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
-      setImportError("No file selected.")
+      setImportError("Không có file nào được chọn.")
       return
     }
 
     const fileExtension = file.name.split(".").pop()?.toLowerCase()
-    if (fileExtension !== "docx") {
-      setImportError("Only .docx files are supported for AI processing.")
+    
+    // Accept both .docx and .pdf
+    if (!['docx', 'pdf'].includes(fileExtension || '')) {
+      setImportError("Chỉ hỗ trợ file .docx hoặc .pdf cho xử lý AI.")
+      return
+    }
+
+    // Validate file type by MIME
+    const allowedMimeTypes = [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/pdf'
+    ]
+    
+    if (!allowedMimeTypes.includes(file.type)) {
+      setImportError("Loại file không được hỗ trợ. Vui lòng chọn file .docx hoặc .pdf hợp lệ.")
+      return
+    }
+
+    // Check file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setImportError("File quá lớn. Kích thước tối đa là 5MB.")
+      return
+    }
+
+    // Validate question count if provided
+    if (desiredQuestionCount !== null && (desiredQuestionCount < 5 || desiredQuestionCount > 100)) {
+      setImportError("Số lượng câu hỏi phải nằm trong khoảng 5-100.")
       return
     }
 
@@ -369,60 +395,71 @@ export default function CreateQuizPage() {
     setIsProcessingWithGemini(true)
 
     try {
-      console.log('[GEMINI] Sending file to Gemini API for processing:', file.name)
+      console.log('[GEMINI] Processing file with AI:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        desiredQuestionCount
+      })
       
-      // Try Gemini API first, fall back to local processing if endpoint doesn't exist
-      try {
-        const result = await quizAPI.processDocxWithGemini(file)
-        
-        if (result.questions && result.questions.length > 0) {
-          const geminiQuestions: Question[] = result.questions.map((q, index) => ({
-            id: `gemini-${Date.now()}-${index + 1}`,
-            text: q.text,
-            options: q.options,
-            correctAnswerIndex: q.correctAnswerIndex
-          }))
+      const result = await quizAPI.processFileWithGemini(file, desiredQuestionCount || undefined)
+      
+      if (result.questions && result.questions.length > 0) {
+        const geminiQuestions: Question[] = result.questions.map((q, index) => ({
+          id: `gemini-${Date.now()}-${index + 1}`,
+          text: q.text,
+          options: q.options,
+          correctAnswerIndex: q.correctAnswerIndex
+        }))
 
-          setQuestions(geminiQuestions)
-          alert(`🤖 Gemini successfully processed ${geminiQuestions.length} questions from ${file.name}!`)
-          return
+        setQuestions(geminiQuestions)
+        
+        // Note: AI can provide title and description in result.title and result.description
+        // but current form doesn't have separate inputs for them
+        // User can use AI-generated title as reference and enter manually
+        if (result.title) {
+          console.log('[GEMINI] AI suggested title:', result.title)
         }
-      } catch (apiError: any) {
-        console.log('[GEMINI] API not available, falling back to local processing:', apiError.message)
-        
-        // Fall back to local .docx parsing
-        const mammoth = await import('mammoth')
-        const arrayBuffer = await file.arrayBuffer()
-        const result = await mammoth.extractRawText({ arrayBuffer })
-        const text = result.value
-
-        console.log('[DEBUG] Extracted text from docx:', text.substring(0, 1000) + '...')
-
-        const parsedQuestions = parseQuestionsFromText(text)
-        
-        console.log('[DEBUG] Parsed questions count:', parsedQuestions.length)
-        console.log('[DEBUG] First few questions:', parsedQuestions.slice(0, 2))
-        
-        if (parsedQuestions.length === 0) {
-          setImportError(`No questions found in the document. Please check the format. Extracted text preview: "${text.substring(0, 200)}..."`)
-          return
+        if (result.description) {
+          console.log('[GEMINI] AI suggested description:', result.description)
         }
-
-        setQuestions(parsedQuestions)
-        alert(`📄 Successfully parsed ${parsedQuestions.length} questions from ${file.name} (using local processing)`)
-        return
+        
+        const fileType = file.name.endsWith('.pdf') ? 'PDF' : 'Word'
+        let successMessage = `🤖 AI đã xử lý thành công ${geminiQuestions.length} câu hỏi từ file ${fileType}!`
+        
+        // Show warning if fewer questions than requested
+        if (result.requestedCount && result.actualCount && result.actualCount < result.requestedCount) {
+          successMessage += `\n⚠️ Lưu ý: Bạn yêu cầu ${result.requestedCount} câu hỏi nhưng chỉ có thể tạo ${result.actualCount} câu từ nội dung file.`
+        }
+        
+        alert(successMessage)
+      } else {
+        setImportError("AI không tìm thấy câu hỏi nào trong file. Vui lòng kiểm tra nội dung.")
+      }
+    } catch (error: any) {
+      console.error('[GEMINI] Processing error:', error)
+      
+      let errorMessage = 'Xử lý file thất bại. '
+      
+      if (error.response?.status === 413) {
+        errorMessage = 'File quá lớn. Vui lòng chọn file nhỏ hơn 5MB.'
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response.data?.message || 'File không hợp lệ hoặc không thể đọc.'
+      } else if (error.response?.status === 403) {
+        errorMessage = 'Bạn cần nâng cấp gói premium để sử dụng tính năng này.'
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Lỗi xử lý AI. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.'
+      } else if (error.message) {
+        errorMessage += error.message
+      } else {
+        errorMessage += 'Lỗi không xác định. Vui lòng thử lại.'
       }
       
-      setImportError("Gemini could not extract any questions from this document. Please check the file format.")
-    } catch (error) {
-      console.error('Error processing file:', error)
-      setImportError(`Processing failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setImportError(errorMessage)
     } finally {
       setIsProcessingWithGemini(false)
+      event.target.value = "" // Clear input
     }
-
-    // Clear the file input after processing
-    event.target.value = ""
   }
 
   // Handle image upload with compression
@@ -762,6 +799,37 @@ Lưu ý: Để chỉnh sửa câu hỏi, vui lòng tạo quiz mới.`)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Question Count Control */}
+            <div className="space-y-2">
+              <Label htmlFor="question-count" className="text-sm font-medium text-gray-700">
+                Số lượng câu hỏi mong muốn (tùy chọn)
+              </Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="question-count"
+                  type="number"
+                  min="5"
+                  max="100"
+                  placeholder="Để trống = Tự động"
+                  value={desiredQuestionCount || ""}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseInt(e.target.value) : null
+                    setDesiredQuestionCount(value)
+                  }}
+                  disabled={isProcessingWithGemini}
+                  className="w-32 h-10 border-gray-200 focus:border-purple-400 focus:ring-purple-400"
+                />
+                <span className="text-sm text-gray-500">
+                  {desiredQuestionCount 
+                    ? `${desiredQuestionCount} câu hỏi` 
+                    : "Tự động (AI quyết định)"}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500">
+                Nhập số từ 5-100, hoặc để trống để AI tự chọn số lượng phù hợp
+              </p>
+            </div>
+
             <div className="flex flex-col sm:flex-row items-center gap-4">
               <Label htmlFor="gemini-import" className="sr-only">
                 AI Import
@@ -769,7 +837,7 @@ Lưu ý: Để chỉnh sửa câu hỏi, vui lòng tạo quiz mới.`)
               <Input
                 id="gemini-import"
                 type="file"
-                accept=".docx"
+                accept=".docx,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/pdf"
                 onChange={handleGeminiProcessing}
                 disabled={isProcessingWithGemini}
                 className="flex-1 h-11 border-gray-200 focus:border-purple-400 focus:ring-purple-400 file:text-purple-600 file:bg-purple-50 file:border-purple-200 file:hover:bg-purple-100"
@@ -797,16 +865,16 @@ Lưu ý: Để chỉnh sửa câu hỏi, vui lòng tạo quiz mới.`)
                 <div className="text-sm text-gray-700">
                   <p className="font-medium mb-1">AI sẽ tự động:</p>
                   <ul className="list-disc list-inside space-y-1 text-gray-600">
-                    <li>Phân tích nội dung tài liệu .docx</li>
+                    <li>Phân tích nội dung tài liệu Word (.docx) hoặc PDF</li>
                     <li>Trích xuất câu hỏi và đáp án</li>
-                    <li>Tạo định dạng quiz chuẩn</li>
-                    <li>Xác định đáp án đúng</li>
+                    <li>Tạo lựa chọn cho câu hỏi nếu chưa có</li>
+                    <li>Tạo định dạng quiz chuẩn với giải thích</li>
                   </ul>
                 </div>
               </div>
             </div>
             <p className="text-sm text-gray-500">
-              Chỉ hỗ trợ: .docx • Được hỗ trợ bởi Google Gemini AI
+              Hỗ trợ: .docx, .pdf (tối đa 5MB) • Được hỗ trợ bởi Google Gemini AI
             </p>
             {importError && (
               <div className="flex items-center text-red-600 text-sm mt-2">
