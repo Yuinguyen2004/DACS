@@ -11,6 +11,7 @@ class QuizModel {
     required this.durationMinutes,
     required this.thumbnail,
     required this.description,
+    this.isPremiumContent = false,
   });
 
   final String id;
@@ -22,4 +23,5 @@ class QuizModel {
   final int durationMinutes;
   final String thumbnail;
   final String description;
+  final bool isPremiumContent;
 }

@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobilefe/providers/app_providers.dart';
 import 'package:mobilefe/screens/student/home_screen.dart';
+import 'package:mobilefe/screens/student/history_screen.dart';
 import 'package:mobilefe/screens/student/profile_screen.dart';
-import 'package:mobilefe/screens/student/search_screen.dart';
 
 class MainScreen extends ConsumerWidget {
   const MainScreen({super.key});
@@ -14,7 +14,7 @@ class MainScreen extends ConsumerWidget {
     final int currentIndex = ref.watch(studentTabProvider);
     final List<Widget> tabs = const <Widget>[
       HomeScreen(),
-      SearchScreen(),
+      HistoryScreen(),
       ProfileScreen(),
     ];
 
@@ -28,8 +28,8 @@ class MainScreen extends ConsumerWidget {
         destinations: const <NavigationDestination>[
           NavigationDestination(icon: Icon(LucideIcons.home), label: 'Home'),
           NavigationDestination(
-            icon: Icon(LucideIcons.bookOpen),
-            label: 'Library',
+            icon: Icon(LucideIcons.history),
+            label: 'History',
           ),
           NavigationDestination(icon: Icon(LucideIcons.user), label: 'Profile'),
         ],

@@ -4,6 +4,10 @@ import 'package:mobilefe/models/quiz_model.dart';
 import 'package:mobilefe/screens/auth/login_screen.dart';
 import 'package:mobilefe/screens/auth/onboarding_screen.dart';
 import 'package:mobilefe/screens/auth/register_screen.dart';
+import 'package:mobilefe/screens/create_quiz/quiz_creation_method_screen.dart';
+import 'package:mobilefe/screens/create_quiz/quiz_creation_models.dart';
+import 'package:mobilefe/screens/create_quiz/quiz_type_selector.dart';
+import 'package:mobilefe/screens/premium/premium_screen.dart';
 import 'package:mobilefe/screens/quiz/quiz_detail_screen.dart';
 import 'package:mobilefe/screens/quiz/quiz_flow_models.dart';
 import 'package:mobilefe/screens/quiz/quiz_result_screen.dart';
@@ -20,6 +24,9 @@ class AppRoute {
   static const quizDetail = '/quiz/detail';
   static const quizTaking = '/quiz/taking';
   static const quizResult = '/quiz/result';
+  static const premium = '/premium';
+  static const createQuizType = '/create-quiz/type';
+  static const createQuizMethod = '/create-quiz/method';
 }
 
 class AppRouter {
@@ -72,6 +79,24 @@ class AppRouter {
             return QuizResultScreen(payload: extra);
           }
           return const _RouteFallback(message: 'Missing quiz result data');
+        },
+      ),
+      GoRoute(
+        path: AppRoute.premium,
+        builder: (context, state) => const PremiumScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.createQuizType,
+        builder: (context, state) => const QuizTypeSelectorScreen(),
+      ),
+      GoRoute(
+        path: AppRoute.createQuizMethod,
+        builder: (context, state) {
+          final Object? extra = state.extra;
+          if (extra is QuizType) {
+            return QuizCreationMethodScreen(quizType: extra);
+          }
+          return const _RouteFallback(message: 'Missing quiz type data');
         },
       ),
     ],

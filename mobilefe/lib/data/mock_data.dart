@@ -5,16 +5,28 @@ import 'package:mobilefe/models/quiz_model.dart';
 import 'package:mobilefe/models/quiz_question_model.dart';
 import 'package:mobilefe/models/user_model.dart';
 
-const mockUser = UserModel(
-  id: 'user-1',
+const userFree = UserModel(
+  id: 'user-free',
   name: 'Linh Nguyen',
   email: 'linh.nguyen@example.com',
   avatarUrl: 'https://i.pravatar.cc/150?img=32',
   level: 'Pro Learner',
-  points: 4820,
-  quizzesTaken: 37,
-  averageScore: 86.5,
+  points: 3200,
+  quizzesTaken: 18,
+  averageScore: 78.5,
   isPremium: false,
+);
+
+const userPremium = UserModel(
+  id: 'user-premium',
+  name: 'Khoa Tran',
+  email: 'khoa.tran@example.com',
+  avatarUrl: 'https://i.pravatar.cc/150?img=28',
+  level: 'Elite Scholar',
+  points: 6400,
+  quizzesTaken: 54,
+  averageScore: 90.2,
+  isPremium: true,
 );
 
 final mockQuizzes = <QuizModel>[
@@ -29,6 +41,7 @@ final mockQuizzes = <QuizModel>[
     thumbnail:
         'https://images.unsplash.com/photo-1484820543000-5e4e1de22c75?auto=format&fit=crop&w=600&q=60',
     description: 'Boost your IELTS vocab with curated flash questions.',
+    isPremiumContent: false,
   ),
   const QuizModel(
     id: 'quiz-2',
@@ -41,6 +54,7 @@ final mockQuizzes = <QuizModel>[
     thumbnail:
         'https://images.unsplash.com/photo-1509223197845-458d87318791?auto=format&fit=crop&w=600&q=60',
     description: 'Master derivatives & integrals with bite-sized problems.',
+    isPremiumContent: true,
   ),
   const QuizModel(
     id: 'quiz-3',
@@ -53,6 +67,7 @@ final mockQuizzes = <QuizModel>[
     thumbnail:
         'https://images.unsplash.com/photo-1462332420958-a05d1e002413?auto=format&fit=crop&w=600&q=60',
     description: 'Motion, waves, and energy concepts for Grade 12.',
+    isPremiumContent: false,
   ),
 ];
 
@@ -77,6 +92,37 @@ final recentActivities = <ActivityModel>[
     score: 65,
     completedOn: DateTime.now().subtract(const Duration(days: 2, hours: 5)),
     status: ActivityStatus.inProgress,
+  ),
+];
+
+final quizHistory = <ActivityModel>[
+  ActivityModel(
+    id: 'history-1',
+    quizTitle: 'IELTS Vocabulary Sprint',
+    score: 84,
+    completedOn: DateTime.now().subtract(const Duration(days: 1)),
+    status: ActivityStatus.completed,
+  ),
+  ActivityModel(
+    id: 'history-2',
+    quizTitle: 'Calculus Fundamentals',
+    score: 62,
+    completedOn: DateTime.now().subtract(const Duration(days: 2)),
+    status: ActivityStatus.completed,
+  ),
+  ActivityModel(
+    id: 'history-3',
+    quizTitle: 'Physics Marathon',
+    score: 91,
+    completedOn: DateTime.now().subtract(const Duration(days: 4)),
+    status: ActivityStatus.completed,
+  ),
+  ActivityModel(
+    id: 'history-4',
+    quizTitle: 'World History Challenge',
+    score: 73,
+    completedOn: DateTime.now().subtract(const Duration(days: 7)),
+    status: ActivityStatus.completed,
   ),
 ];
 
