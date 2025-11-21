@@ -8,7 +8,7 @@ import 'package:mobilefe/providers/app_providers.dart';
 Future<void> startCreateQuizFlow(BuildContext context, WidgetRef ref) async {
   final user = ref.read(currentUserProvider);
   if (user.isPremium) {
-    context.push(AppRoute.createQuizType);
+    context.push(AppRoute.createQuizMethod);
     return;
   }
 
