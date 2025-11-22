@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:mobilefe/config/app_router.dart';
 import 'package:mobilefe/data/mock_data.dart';
 import 'package:mobilefe/models/quiz_model.dart';
 import 'package:mobilefe/models/user_model.dart';
 import 'package:mobilefe/providers/app_providers.dart';
 import 'package:mobilefe/screens/create_quiz/create_quiz_entry.dart';
-import 'package:mobilefe/widgets/category_chip.dart';
 import 'package:mobilefe/widgets/quiz_card.dart';
 import 'package:mobilefe/widgets/recent_activity_tile.dart';
 import 'package:mobilefe/widgets/section_header.dart';
@@ -20,10 +17,9 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final UserModel user = ref.watch(currentUserProvider);
-    final bool premiumOnly = ref.watch(premiumQuizzesOnlyProvider);
-    final List<QuizModel> visibleQuizzes = premiumOnly
-        ? mockQuizzes.where((quiz) => quiz.isPremiumContent).toList()
-        : mockQuizzes;
+    final QuizAccessFilter accessFilter = ref.watch(quizAccessFilterProvider);
+    final List<QuizModel> visibleQuizzes =
+      _filterQuizzes(mockQuizzes, accessFilter);
 
     return Scaffold(
       body: SafeArea(
@@ -34,6 +30,15 @@ class HomeScreen extends ConsumerWidget {
             children: <Widget>[
               _HeaderCard(textTheme: textTheme, user: user),
               const SizedBox(height: 24),
+              Text('Filter quizzes', style: textTheme.titleMedium),
+              const SizedBox(height: 8),
+              _FilterChips(
+                selectedFilter: accessFilter,
+                onChanged: (value) => ref
+                    .read(quizAccessFilterProvider.notifier)
+                    .setFilter(value),
+              ),
+              const SizedBox(height: 24),
               SectionHeader(
                 title: 'Recommended Quizzes',
                 actionLabel: 'See all',
@@ -43,17 +48,13 @@ class HomeScreen extends ConsumerWidget {
               SizedBox(
                 height: 300,
                 child: visibleQuizzes.isEmpty
-                    ? _EmptyPremiumState(premiumOnly: premiumOnly)
+                    ? _EmptyQuizState(filter: accessFilter)
                     : ListView.builder(
                         scrollDirection: Axis.horizontal,
                         itemCount: visibleQuizzes.length,
                         itemBuilder: (context, index) {
                           final quiz = visibleQuizzes[index];
-                          return QuizCard(
-                            quiz: quiz,
-                            onTap: () =>
-                                context.push(AppRoute.quizDetail, extra: quiz),
-                          );
+                          return QuizCard(quiz: quiz);
                         },
                       ),
               ),
@@ -72,24 +73,6 @@ class HomeScreen extends ConsumerWidget {
                         child: RecentActivityTile(activity: activity),
                       ),
                     )
-                    .toList(),
-              ),
-              const SizedBox(height: 24),
-              SectionHeader(
-                title: 'Categories',
-                actionLabel: 'Customize',
-                onActionTap: () {},
-              ),
-              const SizedBox(height: 16),
-              GridView.count(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.2,
-                children: categories
-                    .map((category) => CategoryChip(category: category))
                     .toList(),
               ),
             ],
@@ -189,10 +172,62 @@ class _HeaderCard extends StatelessWidget {
   }
 }
 
-class _EmptyPremiumState extends StatelessWidget {
-  const _EmptyPremiumState({required this.premiumOnly});
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({
+    required this.selectedFilter,
+    required this.onChanged,
+  });
 
-  final bool premiumOnly;
+  final QuizAccessFilter selectedFilter;
+  final ValueChanged<QuizAccessFilter> onChanged;
+
+  String _labelFor(QuizAccessFilter filter) {
+    switch (filter) {
+      case QuizAccessFilter.all:
+        return 'All';
+      case QuizAccessFilter.free:
+        return 'Free';
+      case QuizAccessFilter.premium:
+        return 'Premium';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: QuizAccessFilter.values.map((filter) {
+          final bool selected = selectedFilter == filter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(_labelFor(filter)),
+              selected: selected,
+              onSelected: (_) => onChanged(filter),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+class _EmptyQuizState extends StatelessWidget {
+  const _EmptyQuizState({required this.filter});
+
+  final QuizAccessFilter filter;
+
+  String get _message {
+    switch (filter) {
+      case QuizAccessFilter.all:
+        return 'No quizzes available right now.';
+      case QuizAccessFilter.free:
+        return 'All free quizzes are currently unavailable.';
+      case QuizAccessFilter.premium:
+        return 'No premium quizzes available yet.';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -204,12 +239,24 @@ class _EmptyPremiumState extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
         ),
         child: Text(
-          premiumOnly
-              ? 'No premium quizzes available yet.'
-              : 'No quizzes found.',
+          _message,
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ),
     );
+  }
+}
+
+List<QuizModel> _filterQuizzes(
+  List<QuizModel> quizzes,
+  QuizAccessFilter filter,
+) {
+  switch (filter) {
+    case QuizAccessFilter.all:
+      return quizzes;
+    case QuizAccessFilter.free:
+      return quizzes.where((quiz) => !quiz.isPremiumContent).toList();
+    case QuizAccessFilter.premium:
+      return quizzes.where((quiz) => quiz.isPremiumContent).toList();
   }
 }

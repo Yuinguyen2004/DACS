@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobilefe/data/mock_data.dart';
 import 'package:mobilefe/models/user_model.dart';
 
+enum QuizAccessFilter { all, free, premium }
+
 final onboardingIndexProvider = NotifierProvider<OnboardingIndexNotifier, int>(
   OnboardingIndexNotifier.new,
 );
@@ -27,8 +29,9 @@ final selectedDifficultyProvider =
 final currentUserProvider = NotifierProvider<CurrentUserNotifier, UserModel>(
   CurrentUserNotifier.new,
 );
-final premiumQuizzesOnlyProvider = NotifierProvider<BoolToggleNotifier, bool>(
-  () => BoolToggleNotifier(initialState: false),
+final quizAccessFilterProvider =
+    NotifierProvider<QuizAccessFilterNotifier, QuizAccessFilter>(
+  QuizAccessFilterNotifier.new,
 );
 
 class OnboardingIndexNotifier extends Notifier<int> {
@@ -61,6 +64,13 @@ class CurrentUserNotifier extends Notifier<UserModel> {
   }
 
   void setUser(UserModel user) => state = user;
+}
+
+class QuizAccessFilterNotifier extends Notifier<QuizAccessFilter> {
+  @override
+  QuizAccessFilter build() => QuizAccessFilter.all;
+
+  void setFilter(QuizAccessFilter filter) => state = filter;
 }
 
 class BoolToggleNotifier extends Notifier<bool> {

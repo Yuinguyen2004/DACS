@@ -69,6 +69,33 @@ final mockQuizzes = <QuizModel>[
     description: 'Motion, waves, and energy concepts for Grade 12.',
     isPremiumContent: false,
   ),
+  const QuizModel(
+    id: 'quiz-4',
+    title: 'Creative Writing Studio',
+    author: 'Coach Linh',
+    category: 'Language Arts',
+    difficulty: QuizDifficulty.beginner,
+    questionCount: 15,
+    durationMinutes: 12,
+    thumbnail:
+        'https://images.unsplash.com/photo-1455390582262-044cdead277a?auto=format&fit=crop&w=600&q=60',
+    description: 'Warm-up prompts to inspire descriptive and narrative writing.',
+    isPremiumContent: false,
+  ),
+  const QuizModel(
+    id: 'quiz-5',
+    title: 'Data Science Crash Course',
+    author: 'Prof. Minh',
+    category: 'Technology',
+    difficulty: QuizDifficulty.advanced,
+    questionCount: 18,
+    durationMinutes: 22,
+    thumbnail:
+        'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=600&q=60',
+    description:
+        'Assess your knowledge on statistics, Python tooling, and ML workflows.',
+    isPremiumContent: true,
+  ),
 ];
 
 final recentActivities = <ActivityModel>[
@@ -219,6 +246,44 @@ final mockQuizQuestions = <String, List<QuizQuestion>>{
         'Law of Gravitation',
       ],
       correctIndex: 2,
+    ),
+  ],
+  'quiz-4': <QuizQuestion>[
+    const QuizQuestion(
+      id: 'quiz-4-q1',
+      prompt: 'Which narrative perspective uses "I" when telling the story?',
+      options: <String>['First person', 'Second person', 'Third person', 'Omniscient'],
+      correctIndex: 0,
+    ),
+    const QuizQuestion(
+      id: 'quiz-4-q2',
+      prompt: 'What is the main purpose of a sensory detail?',
+      options: <String>[
+        'Explain plot twists',
+        'Appeal to reader senses',
+        'Summarize a chapter',
+        'Provide dialogue',
+      ],
+      correctIndex: 1,
+    ),
+  ],
+  'quiz-5': <QuizQuestion>[
+    const QuizQuestion(
+      id: 'quiz-5-q1',
+      prompt: 'Which library is most associated with data manipulation in Python?',
+      options: <String>['NumPy', 'Pandas', 'Matplotlib', 'Seaborn'],
+      correctIndex: 1,
+    ),
+    const QuizQuestion(
+      id: 'quiz-5-q2',
+      prompt: 'Cross-validation helps primarily with what?',
+      options: <String>[
+        'Speeding up training',
+        'Estimating model performance',
+        'Improving visualization',
+        'Reducing dataset size',
+      ],
+      correctIndex: 1,
     ),
   ],
 };

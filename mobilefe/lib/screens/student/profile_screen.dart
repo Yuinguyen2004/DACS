@@ -14,7 +14,6 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final user = ref.watch(currentUserProvider);
-    final bool premiumOnly = ref.watch(premiumQuizzesOnlyProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -89,17 +88,6 @@ class ProfileScreen extends ConsumerWidget {
                       onChanged: (value) => ref
                           .read(currentUserProvider.notifier)
                           .setPremium(value),
-                    ),
-                    const Divider(height: 0),
-                    SwitchListTile(
-                      title: const Text('Show Premium Quizzes Only'),
-                      subtitle: const Text(
-                        'Filter Home recommendations to premium content.',
-                      ),
-                      value: premiumOnly,
-                      onChanged: (value) => ref
-                          .read(premiumQuizzesOnlyProvider.notifier)
-                          .setValue(value),
                     ),
                   ],
                 ),
