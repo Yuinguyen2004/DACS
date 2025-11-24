@@ -16,7 +16,7 @@ import { FirebaseAuthGuard } from './firebase-auth.guard';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('login')
   @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
@@ -25,7 +25,7 @@ export class AuthController {
     if (!dto.email || !dto.password) {
       throw new UnauthorizedException('Email and password are required');
     }
-    
+
     try {
       return await this.authService.login(dto.email, dto.password);
     } catch (error) {
@@ -87,6 +87,13 @@ export class AuthController {
         user = userData;
       }
 
+      // Check if user account is blocked (status: 'inactive')
+      if (user.status === 'inactive') {
+        throw new UnauthorizedException(
+          'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
+        );
+      }
+
       return {
         user,
         firebaseUid: decodedToken.uid,
@@ -114,7 +121,14 @@ export class AuthController {
   @Get('profile')
   @UseGuards(FirebaseAuthGuard)
   async getProfile(@Request() req) {
-    return req.user;
+    const userId = req.user.userId;
+    const usersService = this.authService['usersService'];
+    const user = await usersService.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    const { password_hash, ...result } = user.toObject();
+    return result;
   }
 
   @Post('verify-token')

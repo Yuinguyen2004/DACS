@@ -29,7 +29,7 @@ export class TestAttemptService {
     @InjectModel(User.name) private userModel: Model<User>,
     private leaderboardService: LeaderboardService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   /**
    * Bat dau lam bai test
@@ -66,7 +66,7 @@ export class TestAttemptService {
 
       // Chi admin hoac user co package co gia > 0 moi co the truy cap premium quiz
       const isAdmin = user.role === 'admin';
-      
+
       // Kiem tra package_id hop le (khong phai 'guest' string)
       const packageData = user.package_id;
       const hasPremiumPackage =
@@ -110,6 +110,7 @@ export class TestAttemptService {
           content: question.content,
           type: question.type,
           question_number: question.question_number,
+          image: question.image,
           answers: answers,
         };
       }),
@@ -267,9 +268,9 @@ export class TestAttemptService {
         submitData.answers && submitData.answers.length > 0
           ? submitData.answers
           : attempt.draft_answers.map((d) => ({
-              question_id: d.question_id.toString(),
-              selected_answer_id: d.selected_answer_id.toString(),
-            }));
+            question_id: d.question_id.toString(),
+            selected_answer_id: d.selected_answer_id.toString(),
+          }));
 
       // Duyệt qua từng câu trả lời
       for (const answerSubmission of answersToProcess) {
@@ -574,6 +575,7 @@ export class TestAttemptService {
           content: question.content,
           type: question.type,
           question_number: question.question_number,
+          image: question.image,
           answers: answers,
         };
       }),
@@ -733,6 +735,7 @@ export class TestAttemptService {
           content: question.content,
           type: question.type,
           question_number: question.question_number,
+          image: question.image,
           answers: answers,
         };
       }),
@@ -892,7 +895,7 @@ export class TestAttemptService {
     return false;
   }
 
-  
+
   /**
    * Manually abandon a test attempt (when user leaves the test page)
    * This should be called when the user navigates away or closes the test
@@ -903,7 +906,7 @@ export class TestAttemptService {
    */
   async abandonTestAttempt(attemptId: string, userId: string): Promise<boolean> {
     console.log(`[ABANDON] Attempting to abandon attempt ${attemptId} for user ${userId}`);
-    
+
     // Validate ObjectId format
     if (!Types.ObjectId.isValid(attemptId) || !Types.ObjectId.isValid(userId)) {
       console.log(`[ABANDON] Invalid ID format`);
@@ -962,7 +965,7 @@ export class TestAttemptService {
     if (!Types.ObjectId.isValid(id)) {
       return null;
     }
-    
+
     const attempt = await this.testAttemptModel.findById(id);
     return attempt;
   }

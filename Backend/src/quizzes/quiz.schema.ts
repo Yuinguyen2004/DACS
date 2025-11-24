@@ -21,6 +21,13 @@ export class Quiz extends Document {
 
   @Prop({ default: false })
   is_premium: boolean;
+
+  @Prop({ default: false })
+  is_hidden: boolean; // Admin can hide/unhide quiz
 }
 
 export const QuizSchema = SchemaFactory.createForClass(Quiz);
+
+// Add indexes for admin queries
+QuizSchema.index({ is_hidden: 1 });
+QuizSchema.index({ user_id: 1, is_hidden: 1 });

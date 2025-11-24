@@ -15,6 +15,7 @@ import {
   Req,
   ForbiddenException,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { UsersService } from './user.service';
 import { CreateUserDto } from './dto/user-dto/create-user.dto';
@@ -26,7 +27,7 @@ import { Request } from 'express';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   // ===== ADMIN ENDPOINTS =====
 
@@ -54,7 +55,7 @@ export class UsersController {
     @Query('limit') limit?: string,
   ) {
     await this.checkAdminAccess(req.user.userId);
-    
+
     const filters = {
       search,
       role,
@@ -62,7 +63,7 @@ export class UsersController {
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
     };
-    
+
     return this.usersService.getAllUsersForAdmin(filters);
   }
 
@@ -104,6 +105,100 @@ export class UsersController {
       const { password_hash, ...userWithoutPassword } = u.toObject();
       return userWithoutPassword;
     });
+  }
+
+  @Get('profile')
+  @UseGuards(FirebaseAuthGuard)
+  async getProfile(@Req() req: any) {
+    // This endpoint is needed because the frontend might be calling /users/profile
+    // and falling through to the :id route, causing a CastError.
+    const userId = req.user.userId;
+    const user = await this.usersService.findByIdWithPackage(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const { password_hash, ...result } = user.toObject();
+
+    // Add isPremium flag based on package_id
+    // Premium if package exists, is an object (populated), and price > 0
+    const packageData = result.package_id as any;
+    const isPremium =
+      packageData &&
+      typeof packageData === 'object' &&
+      packageData.price > 0;
+
+    return {
+      ...result,
+      isPremium,
+    };
+  }
+
+  @Patch('profile')
+  @UseGuards(FirebaseAuthGuard)
+  async updateProfile(@Req() req: any, @Body() updateData: { name?: string }) {
+    const userId = req.user.userId;
+    let user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Update user name if provided
+    if (updateData.name) {
+      user.name = updateData.name;
+      await user.save();
+    }
+
+    // Re-fetch with package to ensure correct premium status
+    user = await this.usersService.findByIdWithPackage(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const { password_hash, ...result } = user.toObject();
+
+    // Add isPremium flag
+    const packageData = result.package_id as any;
+    const isPremium =
+      packageData &&
+      typeof packageData === 'object' &&
+      packageData.price > 0;
+
+    return {
+      ...result,
+      isPremium,
+    };
+  }
+
+  @Patch('change-password')
+  @UseGuards(FirebaseAuthGuard)
+  async changePassword(
+    @Req() req: any,
+    @Body() passwordData: { currentPassword: string; newPassword: string },
+  ) {
+    const userId = req.user.userId;
+    const user = await this.usersService.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Verify current password
+    const bcrypt = require('bcrypt');
+    const isPasswordValid = await bcrypt.compare(
+      passwordData.currentPassword,
+      user.password_hash,
+    );
+
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(passwordData.newPassword, 10);
+    user.password_hash = hashedPassword;
+    await user.save();
+
+    return {
+      message: 'Password changed successfully',
+    };
   }
 
   @Get(':id')
@@ -156,18 +251,7 @@ export class UsersController {
     return this.usersService.update(id, dto);
   }
 
-  @Patch(':id/password')
-  @UseGuards(FirebaseAuthGuard)
-  async changePassword(
-    @Param('id') id: string,
-    @Body() dto: ChangePasswordDto,
-    @Req() req: any,
-  ) {
-    if (req.user.userId !== id) {
-      throw new NotFoundException('You can only change your own password');
-    }
-    return this.usersService.changePassword(id, dto);
-  }
+
 
   @Delete('cancel-subscription')
   @UseGuards(FirebaseAuthGuard)
@@ -214,11 +298,11 @@ export class UsersController {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    
+
     if (user.role !== 'admin') {
       throw new ForbiddenException('Access denied. Admin role required.');
     }
-    
+
     return user;
   }
 }

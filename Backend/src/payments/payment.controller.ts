@@ -14,7 +14,8 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { PaymentService } from './payment.service';
-import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { ZaloPayService } from './zalopay.service';
+import { FirebaseAuthGuard, AllowInactiveUser } from '../auth/firebase-auth.guard';
 import {
   PaymentStatus,
   PaymentMethod,
@@ -26,7 +27,10 @@ import { Request } from 'express';
 export class PaymentController {
   private readonly logger = new Logger(PaymentController.name);
 
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly zaloPayService: ZaloPayService,
+  ) { }
 
   @Post('vnpay/create-url')
   @UseGuards(FirebaseAuthGuard)
@@ -591,5 +595,120 @@ export class PaymentController {
       createdAt: payment.date,
       vnpTransactionNo: payment.vnp_transaction_no,
     };
+  }
+  @Post('google-iap')
+  @UseGuards(FirebaseAuthGuard)
+  @AllowInactiveUser()  // Allow inactive users to purchase (they get activated after payment)
+  async verifyGoogleIAP(
+    @Body() body: { purchaseToken: string; productId: string; packageId: string },
+    @Req() request: any,
+  ) {
+    try {
+      const userId = request.user.userId;
+      return await this.paymentService.verifyGooglePurchase(
+        userId,
+        body.purchaseToken,
+        body.productId,
+        body.packageId,
+      );
+    } catch (error) {
+      this.logger.error('Error verifying Google IAP:', error);
+      throw new BadRequestException('Failed to verify Google IAP');
+    }
+  }
+
+  // ZaloPay endpoints
+  @Post('zalopay/create-order')
+  @UseGuards(FirebaseAuthGuard)
+  @AllowInactiveUser()
+  async createZaloPayOrder(
+    @Body() body: { packageId: string; amount: number; description: string },
+    @Req() request: any,
+  ) {
+    try {
+      const userId = request.user.userId;
+      
+      this.logger.log(
+        `[ZaloPay] Creating order for user ${userId}, package ${body.packageId}`,
+      );
+
+      // Create payment record
+      const payment = await this.paymentService.createPayment(
+        userId,
+        body.packageId,
+        PaymentMethod.ZALOPAY,
+      );
+
+      // Create ZaloPay order
+      const orderResult = await this.zaloPayService.createOrder(
+        userId,
+        body.packageId,
+        body.amount,
+        body.description,
+      );
+
+      // Update payment with transaction ID
+      await this.paymentService.updatePaymentTransactionId(
+        (payment._id as any).toString(),
+        orderResult.appTransId,
+      );
+
+      return {
+        success: true,
+        orderUrl: orderResult.orderUrl,
+        paymentCode: payment.payment_code,
+      };
+    } catch (error) {
+      this.logger.error('[ZaloPay] Create order error:', error);
+      throw new BadRequestException('Failed to create ZaloPay order');
+    }
+  }
+
+  @Post('zalopay/callback')
+  async zaloPayCallback(@Body() body: any, @Res() res: Response) {
+    this.logger.log('[ZaloPay] Callback received:', JSON.stringify(body));
+
+    try {
+      const { data, mac } = body;
+      
+      // Verify signature
+      const isValid = this.zaloPayService.verifyCallback(data, mac);
+      
+      if (!isValid) {
+        this.logger.warn('[ZaloPay] Invalid callback signature');
+        return res.json({ return_code: -1, return_message: 'Invalid signature' });
+      }
+
+      // Parse data
+      const dataJson = JSON.parse(data);
+      const appTransId = dataJson.app_trans_id;
+      
+      this.logger.log(`[ZaloPay] Processing payment: ${appTransId}`);
+
+      // Find payment by transaction ID
+      const payment = await this.paymentService.findByTransactionId(appTransId);
+      
+      if (!payment) {
+        this.logger.warn(`[ZaloPay] Payment not found: ${appTransId}`);
+        return res.json({ return_code: -1, return_message: 'Payment not found' });
+      }
+
+      // Update payment status
+      if (payment.status === PaymentStatus.PENDING) {
+        await this.paymentService.updatePaymentStatus(
+          (payment._id as any).toString(),
+          PaymentStatus.SUCCESS,
+          appTransId,
+          'success',
+        );
+        
+        this.logger.log(`[ZaloPay] Payment ${payment._id} updated to SUCCESS`);
+      }
+
+      return res.json({ return_code: 1, return_message: 'success' });
+    } catch (error) {
+      this.logger.error('[ZaloPay] Callback error:', error);
+      return res.json({ return_code: 0, return_message: 'error' });
+    }
   }
 }

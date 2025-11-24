@@ -835,4 +835,152 @@ ${rawText}
       );
     }
   }
+
+  /**
+   * ADMIN METHODS
+   */
+
+  /**
+   * Lấy thống kê quiz cho admin dashboard
+   * @returns Promise<object> - Các chỉ số thống kê
+   */
+  async getAdminStats() {
+    const [totalQuizzes, hiddenQuizzes, premiumQuizzes, totalQuestions] = await Promise.all([
+      this.quizModel.countDocuments(),
+      this.quizModel.countDocuments({ is_hidden: true }),
+      this.quizModel.countDocuments({ is_premium: true }),
+      this.questionModel.countDocuments(),
+    ]);
+
+    return {
+      totalQuizzes,
+      hiddenQuizzes,
+      premiumQuizzes,
+      freeQuizzes: totalQuizzes - premiumQuizzes,
+      totalQuestions,
+    };
+  }
+
+  /**
+   * Lấy tất cả quiz cho admin với filters và pagination
+   * @param filters - Bộ lọc (search, creator, is_premium, is_hidden)
+   * @param pagination - Phân trang (page, limit)
+   * @returns Promise<object> - Danh sách quiz và metadata
+   */
+  async getAllQuizzesForAdmin(
+    filters: {
+      search?: string;
+      creatorId?: string;
+      is_premium?: boolean;
+      is_hidden?: boolean;
+    },
+    pagination: { page: number; limit: number },
+  ) {
+    const { search, creatorId, is_premium, is_hidden } = filters;
+    const { page, limit } = pagination;
+
+    // Build query
+    const query: any = {};
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (creatorId) {
+      query.user_id = new Types.ObjectId(creatorId);
+    }
+
+    if (is_premium !== undefined) {
+      query.is_premium = is_premium;
+    }
+
+    if (is_hidden !== undefined) {
+      query.is_hidden = is_hidden;
+    }
+
+    // Execute query with pagination
+    const [quizzes, total] = await Promise.all([
+      this.quizModel
+        .find(query)
+        .populate('user_id', 'username email displayName')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.quizModel.countDocuments(query),
+    ]);
+
+    // Add question count for each quiz
+    const quizzesWithDetails = await Promise.all(
+      quizzes.map(async (quiz) => {
+        const questionCount = await this.questionModel.countDocuments({
+          quiz_id: quiz._id,
+        });
+
+        return {
+          ...quiz.toObject(),
+          questionCount,
+        };
+      }),
+    );
+
+    return {
+      quizzes: quizzesWithDetails,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Toggle is_hidden status của quiz
+   * @param quizId - ID của quiz
+   * @returns Promise<Quiz> - Quiz đã cập nhật
+   */
+  async toggleHidden(quizId: string) {
+    const quiz = await this.quizModel.findById(quizId);
+    if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${quizId} not found`);
+    }
+
+    quiz.is_hidden = !quiz.is_hidden;
+    await quiz.save();
+
+    return quiz;
+  }
+
+  /**
+   * Xóa quiz và tất cả dữ liệu liên quan (admin only)
+   * @param quizId - ID của quiz cần xóa
+   * @returns Promise<void>
+   */
+  async adminDelete(quizId: string) {
+    const quiz = await this.quizModel.findById(quizId);
+    if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${quizId} not found`);
+    }
+
+    // Lấy tất cả question IDs thuộc quiz này
+    const questions = await this.questionModel.find({ quiz_id: quizId });
+    const questionIds = questions.map((q) => q._id);
+
+    // Xóa tất cả answers thuộc các questions này
+    if (questionIds.length > 0) {
+      await this.answerModel.deleteMany({ question_id: { $in: questionIds } });
+    }
+
+    // Xóa tất cả questions
+    await this.questionModel.deleteMany({ quiz_id: quizId });
+
+    // Xóa quiz
+    await this.quizModel.findByIdAndDelete(quizId);
+
+    console.log(`[ADMIN] Deleted quiz ${quizId} with ${questions.length} questions`);
+  }
 }

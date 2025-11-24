@@ -20,7 +20,7 @@ export class UsersService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Quiz.name) private quizModel: Model<Quiz>,
     @InjectModel(TestAttempt.name) private testAttemptModel: Model<TestAttempt>,
-  ) {}
+  ) { }
 
   async create(dto: CreateUserDto) {
     // check email hien da ton tai
@@ -55,6 +55,10 @@ export class UsersService {
 
   async findByEmail(email: string) {
     return this.userModel.findOne({ email });
+  }
+
+  async findByIdWithPackage(id: string) {
+    return this.userModel.findById(id).populate('package_id');
   }
 
   async update(id: string, dto: UpdateUserDto) {
@@ -346,7 +350,7 @@ export class UsersService {
       this.userModel.countDocuments(),
       this.userModel.countDocuments({ role: 'admin' }),
       this.userModel.countDocuments({ isOnline: true }),
-      this.userModel.countDocuments({ 
+      this.userModel.countDocuments({
         $and: [
           { package_id: { $ne: 'guest' } },
           { package_id: { $exists: true } },
@@ -413,10 +417,10 @@ export class UsersService {
     return {
       users: users.map(user => ({
         ...user,
-        isPremium: user.package_id && 
-                  typeof user.package_id === 'string' ? false :
-                  typeof user.package_id === 'object' && 
-                  user.package_id !== null
+        isPremium: user.package_id &&
+          typeof user.package_id === 'string' ? false :
+          typeof user.package_id === 'object' &&
+          user.package_id !== null
       })),
       pagination: {
         page: filters.page,

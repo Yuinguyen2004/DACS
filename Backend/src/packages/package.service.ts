@@ -20,7 +20,8 @@ export class PackageService {
   async getPackageForPayment(id: string) {
     const pkg = await this.packageModel.findById(id);
     if (!pkg) {
-      throw new Error('Package not found');
+      const { NotFoundException } = require('@nestjs/common');
+      throw new NotFoundException(`Package not found with ID: ${id}`);
     }
     return {
       id: pkg._id,
