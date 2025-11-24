@@ -220,6 +220,21 @@ export default function QuizResults({ isPremium }: QuizResultsProps) {
                 <Home className="w-4 h-4" />
                 <span>Về trang chủ</span>
               </Button>
+              <Button
+                onClick={() => {
+                  const quizId = typeof testAttempt?.quiz_id === 'object' 
+                    ? testAttempt.quiz_id?._id 
+                    : testAttempt?.quiz_id
+                  if (quizId) {
+                    navigate(`/leaderboard/${quizId}`)
+                  }
+                }}
+                variant="outline"
+                className="flex items-center justify-center space-x-2 h-12 px-6 border-yellow-400 bg-yellow-50 hover:bg-yellow-100 text-yellow-700"
+              >
+                <Trophy className="w-4 h-4" />
+                <span>Xem Bảng Xếp Hạng</span>
+              </Button>
               <Button 
                 onClick={() => {
                   if (testAttempt && typeof testAttempt.quiz_id === 'object' && testAttempt.quiz_id?._id) {

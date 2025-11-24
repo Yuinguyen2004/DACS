@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom"
 import { quizAPI, authAPI, userUtils } from "../../services/api"
 import { QuizWithDetails, User } from "../../types/types"
 import { gsap } from 'gsap'
+import ResumeQuizBanner from "./ResumeQuizBanner"
 
 export default function QuizHomepage() {
   const navigate = useNavigate()
@@ -421,6 +422,9 @@ export default function QuizHomepage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Resume Quiz Banner */}
+          <ResumeQuizBanner />
 
           {/* Search and Filters */}
           <div className="filter-section bg-gray-50 rounded-2xl p-6 mb-8">

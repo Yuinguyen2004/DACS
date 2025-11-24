@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { BookOpen, Calendar, Trophy, Eye, Filter, Search, ChevronDown, Loader2, AlertCircle, PlayCircle } from "lucide-react"
+import { BookOpen, Calendar, Trophy, Eye, Filter, Search, ChevronDown, Loader2, AlertCircle } from "lucide-react"
 import { gsap } from 'gsap'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,14 +13,6 @@ import { useNavigate } from "react-router-dom"
 import { authAPI, testAttemptAPI } from "../../services/api"
 import { TestAttempt } from "../../types/types"
 
-type ResumeMetadata = {
-  attemptId: string
-  quizId: string
-  resumeToken?: string
-  startedAt?: string
-  localStorageKey: string
-}
-
 
 export default function QuizHistory() {
   const navigate = useNavigate()
@@ -30,8 +22,6 @@ export default function QuizHistory() {
   const [sortBy, setSortBy] = useState("date")
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string>("")
-  const [resumeMap, setResumeMap] = useState<Record<string, ResumeMetadata>>({})
-  const [resumeLoadingId, setResumeLoadingId] = useState<string | null>(null)
   
   // GSAP refs
   const containerRef = useRef<HTMLDivElement>(null)
@@ -85,39 +75,6 @@ export default function QuizHistory() {
     
     loadTestAttempts()
   }, [navigate])
-
-  // Hydrate resume metadata from localStorage when attempts load
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const loadResumeMap = () => {
-      const map: Record<string, ResumeMetadata> = {}
-      Object.keys(localStorage)
-        .filter((key) => key.startsWith('quiz_attempt_'))
-        .forEach((key) => {
-          const raw = localStorage.getItem(key)
-          if (!raw) return
-          try {
-            const data = JSON.parse(raw)
-            if (data?.quizId && data?.attemptId) {
-              map[data.quizId] = {
-                attemptId: data.attemptId,
-                quizId: data.quizId,
-                resumeToken: data.resumeToken,
-                startedAt: data.startedAt,
-                localStorageKey: key
-              }
-            }
-          } catch (error) {
-            console.warn('[HISTORY] Removing invalid resume data key:', key)
-            localStorage.removeItem(key)
-          }
-        })
-      setResumeMap(map)
-    }
-
-    loadResumeMap()
-  }, [testAttempts])
 
   // GSAP animations after loading
   useEffect(() => {
@@ -278,12 +235,6 @@ export default function QuizHistory() {
     return 'Quiz'
   }
 
-  const getQuizIdFromAttempt = (attempt: TestAttempt): string => {
-    if (typeof attempt.quiz_id === 'string') return attempt.quiz_id
-    if (typeof attempt.quiz_id === 'object' && attempt.quiz_id?._id) return attempt.quiz_id._id
-    return ''
-  }
-
   const formatTimeSpent = (startedAt: string | Date, completedAt?: string | Date): string => {
     if (!completedAt) return 'Chưa hoàn thành'
     
@@ -313,65 +264,6 @@ export default function QuizHistory() {
         return { text: 'Đang thực hiện', color: 'text-blue-600 bg-blue-50 border-blue-200' }
       default:
         return { text: 'Chưa hoàn thành', color: 'text-gray-600 bg-gray-50 border-gray-200' }
-    }
-  }
-
-  const canResumeAttempt = (attempt: TestAttempt, meta?: ResumeMetadata): boolean => {
-    if (!attempt) return false
-    const quizId = getQuizIdFromAttempt(attempt)
-    if (!quizId) return false
-    if (attempt.status === 'in_progress') return true
-    if (meta && meta.attemptId === attempt._id) return true
-    return false
-  }
-
-  const handleResumeFromHistory = async (attempt: TestAttempt, meta?: ResumeMetadata) => {
-    const quizId = getQuizIdFromAttempt(attempt)
-    if (!quizId) {
-      alert('Không thể xác định quiz để tiếp tục.')
-      return
-    }
-
-    setResumeLoadingId(attempt._id)
-
-    try {
-      let resumeData
-      try {
-        resumeData = await testAttemptAPI.getActiveAttempt(quizId)
-      } catch (primaryError) {
-        if (meta?.resumeToken) {
-          resumeData = await testAttemptAPI.resume(meta.resumeToken)
-        } else {
-          throw primaryError
-        }
-      }
-
-      if (!resumeData) {
-        throw new Error('No resume data returned')
-      }
-
-      const payload = {
-        attemptId: resumeData.attempt_id,
-        resumeToken: resumeData.resume_token,
-        quizId,
-        startedAt: resumeData.started_at
-      }
-
-      localStorage.setItem(`quiz_attempt_${quizId}`, JSON.stringify(payload))
-      setResumeMap((prev) => ({
-        ...prev,
-        [quizId]: {
-          ...payload,
-          localStorageKey: `quiz_attempt_${quizId}`
-        }
-      }))
-
-      navigate(`/test?quizId=${quizId}`, { state: { resumedFromHistory: true } })
-    } catch (error) {
-      console.error('[HISTORY] Unable to resume quiz:', error)
-      alert('Không thể tiếp tục quiz này. Vui lòng thử lại.')
-    } finally {
-      setResumeLoadingId(null)
     }
   }
 
@@ -579,18 +471,13 @@ export default function QuizHistory() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAndSortedHistory.map((attempt) => {
-                      const quizIdForRow = getQuizIdFromAttempt(attempt)
-                      const resumeMeta = quizIdForRow ? resumeMap[quizIdForRow] : undefined
-                      const resumeAvailable = canResumeAttempt(attempt, resumeMeta)
-
-                      return (
-                        <TableRow 
-                          key={attempt._id} 
-                          className="history-row hover:bg-gray-50"
-                          onMouseEnter={(e) => handleRowHover(e.currentTarget, true)}
-                          onMouseLeave={(e) => handleRowHover(e.currentTarget, false)}
-                        >
+                    {filteredAndSortedHistory.map((attempt) => (
+                      <TableRow 
+                        key={attempt._id} 
+                        className="history-row hover:bg-gray-50"
+                        onMouseEnter={(e) => handleRowHover(e.currentTarget, true)}
+                        onMouseLeave={(e) => handleRowHover(e.currentTarget, false)}
+                      >
                         <TableCell>
                           <div className="flex items-center space-x-3">
                             <span className="text-lg">{getScoreIcon(attempt.correct_answers || 0, attempt.total_questions || 1)}</span>
@@ -635,20 +522,7 @@ export default function QuizHistory() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {resumeAvailable ? (
-                            <Button
-                              size="sm"
-                              className="h-8 px-3 bg-green-600 hover:bg-green-700 text-white"
-                              onClick={(e) => {
-                                handleButtonClick(e.currentTarget)
-                                setTimeout(() => handleResumeFromHistory(attempt, resumeMeta), 150)
-                              }}
-                              disabled={resumeLoadingId === attempt._id}
-                            >
-                              <PlayCircle className="w-3 h-3 mr-1" />
-                              {resumeLoadingId === attempt._id ? 'Đang mở...' : 'Tiếp tục quiz'}
-                            </Button>
-                          ) : (attempt.status === 'completed' || attempt.status === 'late') ? (
+                          {(attempt.status === 'completed' || attempt.status === 'late') ? (
                             <Button
                               variant="outline"
                               size="sm"
@@ -668,8 +542,7 @@ export default function QuizHistory() {
                           )}
                         </TableCell>
                       </TableRow>
-                      )
-                    })}
+                    ))}
                   </TableBody>
                 </Table>
               </div>

@@ -45,7 +45,7 @@ export enum UserStatus {
 
 export enum NotificationType {
   SYSTEM_UPDATE = 'system_update',
-  PAYMENT_SUCCESS = 'payment_success', 
+  PAYMENT_SUCCESS = 'payment_success',
   PAYMENT_FAILED = 'payment_failed',
   QUIZ_COMPLETED = 'quiz_completed',
   QUIZ_REMINDER = 'quiz_reminder',
@@ -142,6 +142,7 @@ export interface Question extends BaseDocument {
   content: string;
   type: QuestionType;
   explanation?: string;
+  image?: string;
   question_number?: number;
 }
 
@@ -150,6 +151,7 @@ export interface CreateQuestionDto {
   content: string;
   type: QuestionType;
   explanation?: string;
+  image?: string;
   question_number?: number;
 }
 
@@ -187,6 +189,10 @@ export interface TestAttempt extends BaseDocument {
   completed_at?: string | Date; // Backend returns as ISO string
   answers: TestAttemptAnswer[];
   status: TestAttemptStatus;
+  // Resume quiz feature
+  resume_token?: string;
+  draft_answers?: TestAttemptAnswer[];
+  last_autosave?: string | Date;
 }
 
 export interface CreateTestAttemptDto {
@@ -196,6 +202,16 @@ export interface CreateTestAttemptDto {
 
 export interface SubmitTestAttemptDto {
   answers: TestAttemptAnswer[];
+}
+
+export interface ResumeAttemptDto {
+  resume_token: string;
+}
+
+export interface AutosaveDto {
+  attempt_id: string;
+  answers: TestAttemptAnswer[];
+  client_seq: number;
 }
 
 // ===== PAYMENT INTERFACES =====
