@@ -9,6 +9,10 @@ class UserModel {
     required this.quizzesTaken,
     required this.averageScore,
     required this.isPremium,
+    this.subscriptionType,
+    this.subscriptionStartDate,
+    this.subscriptionEndDate,
+    this.subscriptionCanceledAt,
   });
 
   final String id;
@@ -20,6 +24,12 @@ class UserModel {
   final int quizzesTaken;
   final double averageScore;
   final bool isPremium;
+  final String? subscriptionType;
+  final DateTime? subscriptionStartDate;
+  final DateTime? subscriptionEndDate;
+  final DateTime? subscriptionCanceledAt;
+
+  bool get isCanceled => subscriptionCanceledAt != null;
 
   UserModel copyWith({
     String? id,
@@ -31,6 +41,10 @@ class UserModel {
     int? quizzesTaken,
     double? averageScore,
     bool? isPremium,
+    String? subscriptionType,
+    DateTime? subscriptionStartDate,
+    DateTime? subscriptionEndDate,
+    DateTime? subscriptionCanceledAt,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -42,6 +56,10 @@ class UserModel {
       quizzesTaken: quizzesTaken ?? this.quizzesTaken,
       averageScore: averageScore ?? this.averageScore,
       isPremium: isPremium ?? this.isPremium,
+      subscriptionType: subscriptionType ?? this.subscriptionType,
+      subscriptionStartDate: subscriptionStartDate ?? this.subscriptionStartDate,
+      subscriptionEndDate: subscriptionEndDate ?? this.subscriptionEndDate,
+      subscriptionCanceledAt: subscriptionCanceledAt ?? this.subscriptionCanceledAt,
     );
   }
 }

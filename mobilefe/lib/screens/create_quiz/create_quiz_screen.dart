@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobilefe/providers/app_providers.dart';
 import 'package:mobilefe/models/create_quiz_models.dart';
+import 'package:mobilefe/widgets/quiz_thumbnail_picker.dart';
 
 class CreateQuizScreen extends ConsumerStatefulWidget {
   const CreateQuizScreen({super.key});
@@ -27,6 +28,7 @@ class _CreateQuizScreenState extends ConsumerState<CreateQuizScreen> {
   bool _isPremium = false;
   bool _isSubmitting = false;
   String? _errorMessage;
+  String? _thumbnailImage; // Base64 data URL for quiz thumbnail
 
   // AI Generation - support both web and mobile
   PlatformFile? _selectedPlatformFile; // For web compatibility
@@ -203,6 +205,7 @@ class _CreateQuizScreenState extends ConsumerState<CreateQuizScreen> {
         description: _descriptionController.text.trim(),
         timeLimit: int.tryParse(_timeLimitController.text) ?? 30,
         isPremium: _isPremium,
+        image: _thumbnailImage,
       );
 
       final quizId = quizData['_id'];
@@ -352,6 +355,12 @@ class _CreateQuizScreenState extends ConsumerState<CreateQuizScreen> {
                 ],
               ),
             ),
+          // Quiz Thumbnail Picker
+          QuizThumbnailPicker(
+            initialImage: _thumbnailImage,
+            onImageChanged: (image) => setState(() => _thumbnailImage = image),
+          ),
+          const SizedBox(height: 16),
           TextField(
             controller: _titleController,
             decoration: _outlinedDecoration(
@@ -435,6 +444,12 @@ class _CreateQuizScreenState extends ConsumerState<CreateQuizScreen> {
           Text(
             'Upload a document and let AI generate quiz questions',
             style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 16),
+          // Quiz Thumbnail Picker for AI tab
+          QuizThumbnailPicker(
+            initialImage: _thumbnailImage,
+            onImageChanged: (image) => setState(() => _thumbnailImage = image),
           ),
           const SizedBox(height: 16),
           _FilePickerTile(

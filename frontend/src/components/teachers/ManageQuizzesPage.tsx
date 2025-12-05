@@ -364,7 +364,7 @@ export default function ManageQuizzesPage() {
                         </TableCell>
                         <TableCell className="text-gray-700 text-sm">
                           {(() => {
-                            const dateValue = quiz.updated_at || quiz.created_at;
+                            const dateValue = quiz.updatedAt || quiz.createdAt;
                             if (!dateValue) return 'N/A';
                             
                             try {

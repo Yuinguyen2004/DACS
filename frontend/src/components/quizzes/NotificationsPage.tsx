@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bell, Check, CheckCheck, Trash2, Calendar } from 'lucide-react'
+import { Bell, Check, CheckCheck, Calendar } from 'lucide-react'
 import { gsap } from 'gsap'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { notificationAPI } from '../../services/api'
 import { Notification as AppNotification, NotificationType } from '../../types/types'
-import { webSocketService } from '../../services/websocket'
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<AppNotification[]>([])
@@ -85,7 +83,7 @@ export default function NotificationsPage() {
     }
   }
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: string | Date) => {
     return new Date(date).toLocaleDateString('vi-VN', {
       year: 'numeric',
       month: 'short',
@@ -211,24 +209,6 @@ export default function NotificationsPage() {
         ease: "power2.inOut"
       })
     }
-  }
-
-  // New notification entry animation
-  const animateNewNotification = (element: HTMLElement) => {
-    gsap.fromTo(element, 
-      { 
-        opacity: 0, 
-        x: -50, 
-        scale: 0.9 
-      },
-      { 
-        opacity: 1, 
-        x: 0, 
-        scale: 1,
-        duration: 0.6,
-        ease: "back.out(1.2)"
-      }
-    )
   }
 
   const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.isRead).length : 0

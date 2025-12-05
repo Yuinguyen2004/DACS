@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobilefe/config/app_router.dart';
+import 'package:mobilefe/providers/app_providers.dart';
 import 'package:mobilefe/screens/quiz/quiz_flow_models.dart';
 
-class QuizResultScreen extends StatelessWidget {
+class QuizResultScreen extends ConsumerWidget {
   const QuizResultScreen({super.key, required this.payload});
 
   final QuizResultPayload payload;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final int total = payload.questions.length;
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Quiz result')),
       body: SingleChildScrollView(
@@ -19,6 +22,33 @@ class QuizResultScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: <Widget>[
+            if (payload.isTimeOut) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Icon(
+                      LucideIcons.alarmClock,
+                      color: colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Time's Up!",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: colorScheme.onErrorContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             SizedBox(
               height: 180,
               width: 180,
@@ -52,8 +82,26 @@ class QuizResultScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             FilledButton(
-              onPressed: () => context.go(AppRoute.dashboard),
+              onPressed: () {
+                // Invalidate history so it refreshes when user views it
+                ref.invalidate(quizHistoryProvider);
+                context.go(AppRoute.dashboard);
+              },
               child: const Text('Back to Home'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () {
+                context.push(
+                  AppRoute.quizLeaderboard,
+                  extra: QuizLeaderboardPayload(
+                    quizId: payload.quiz.id,
+                    quizTitle: payload.quiz.title,
+                  ),
+                );
+              },
+              icon: const Icon(LucideIcons.trophy),
+              label: const Text('View Leaderboard'),
             ),
             const SizedBox(height: 24),
             Align(

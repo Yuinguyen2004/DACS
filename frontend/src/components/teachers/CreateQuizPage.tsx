@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, type ChangeEvent } from "react"
-import { BookOpen, PlusCircle, Save, Trash2, Crown, Upload, FileWarning, ImageIcon, X } from 'lucide-react'
+import { PlusCircle, Save, Trash2, Crown, Upload, FileWarning, ImageIcon, X } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -120,53 +120,6 @@ const parseQuestionsFromText = (text: string): Question[] => {
   return questions
 }
 
-// Helper function to parse questions from CSV
-const parseQuestionsFromCSV = (csvText: string): Question[] => {
-  const questions: Question[] = []
-  const lines = csvText.split("\n").filter((line) => line.trim().length > 0)
-
-  // Skip header row if it exists
-  const startIndex = lines[0].toLowerCase().includes("question") ? 1 : 0
-
-  for (let i = startIndex; i < lines.length; i++) {
-    const line = lines[i].trim()
-    if (!line) continue
-
-    // Parse CSV line (simple comma splitting - for more complex CSV, use a proper CSV parser)
-    const columns = line.split(",").map((col) => col.trim().replace(/^["']|["']$/g, ""))
-
-    if (columns.length >= 6) {
-      // Expected format: Question, Option1, Option2, Option3, Option4, CorrectAnswer
-      const [questionText, opt1, opt2, opt3, opt4, correctAnswer] = columns
-
-      let correctAnswerIndex: number | null = null
-      const options = [opt1, opt2, opt3, opt4]
-
-      // Find correct answer index
-      if (correctAnswer) {
-        const correctAnswerUpper = correctAnswer.toUpperCase()
-        if (correctAnswerUpper >= "A" && correctAnswerUpper <= "D") {
-          correctAnswerIndex = correctAnswerUpper.charCodeAt(0) - "A".charCodeAt(0)
-        } else if (correctAnswerUpper >= "1" && correctAnswerUpper <= "4") {
-          correctAnswerIndex = Number.parseInt(correctAnswerUpper) - 1
-        } else {
-          // Try to match by content
-          correctAnswerIndex = options.findIndex((opt) => opt.toLowerCase() === correctAnswer.toLowerCase())
-        }
-      }
-
-      questions.push({
-        id: `csv-${Date.now()}-${questions.length + 1}`,
-        text: questionText,
-        options,
-        correctAnswerIndex: correctAnswerIndex !== -1 ? correctAnswerIndex : null,
-      })
-    }
-  }
-
-  return questions
-}
-
 export default function CreateQuizPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -239,7 +192,7 @@ export default function CreateQuizPage() {
       setTimeLimit(quiz.time_limit || null)
 
       // Convert questions to local format
-      const formattedQuestions: QuestionWithImage[] = quizQuestions.map((q, index) => {
+      const formattedQuestions: QuestionWithImage[] = quizQuestions.map((q) => {
         console.log("[CREATE_QUIZ] Processing question:", q)
         console.log("[CREATE_QUIZ] Question answers:", q.answers)
         console.log("[CREATE_QUIZ] Question image:", q.image)
@@ -339,63 +292,6 @@ export default function CreateQuizPage() {
     setQuestions((prevQuestions) =>
       prevQuestions.map((q) => (q.id === questionId ? { ...q, correctAnswerIndex: optionIndex } : q)),
     )
-  }
-
-  const handleFileImport = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) {
-      setImportError("No file selected.")
-      return
-    }
-
-    const fileExtension = file.name.split(".").pop()?.toLowerCase()
-    setImportError(null) // Clear previous errors
-
-    try {
-      if (fileExtension === "docx") {
-        // Import mammoth for .docx parsing
-        const mammoth = await import("mammoth")
-
-        // Read the .docx file
-        const arrayBuffer = await file.arrayBuffer()
-        const result = await mammoth.extractRawText({ arrayBuffer })
-        const text = result.value
-
-        // Parse the text to extract questions
-        const parsedQuestions = parseQuestionsFromText(text)
-
-        if (parsedQuestions.length === 0) {
-          setImportError("No questions found in the document. Please check the format.")
-          return
-        }
-
-        // Replace all questions (including the default empty one) with imported questions
-        setQuestions(parsedQuestions)
-        alert(`Successfully imported ${parsedQuestions.length} questions from ${file.name}!`)
-      } else if (fileExtension === "csv") {
-        // Handle CSV files
-        const text = await file.text()
-        const parsedQuestions = parseQuestionsFromCSV(text)
-
-        if (parsedQuestions.length === 0) {
-          setImportError("No questions found in the CSV file. Please check the format.")
-          return
-        }
-
-        setQuestions(parsedQuestions)
-        alert(`Successfully imported ${parsedQuestions.length} questions from ${file.name}!`)
-      } else if (fileExtension === "xlsx") {
-        setImportError("Excel (.xlsx) import is not yet implemented. Please use .docx or .csv files.")
-      } else {
-        setImportError("Unsupported file format. Please upload .docx or .csv files.")
-      }
-    } catch (error) {
-      console.error("Error importing file:", error)
-      setImportError(`Error reading file: ${error instanceof Error ? error.message : "Unknown error"}`)
-    }
-
-    // Clear the file input after processing
-    event.target.value = ""
   }
 
   const handleGeminiProcessing = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -611,7 +507,7 @@ export default function CreateQuizPage() {
           description: `Quiz được cập nhật bởi ${user?.name || "User"}`,
           image: quizImage || undefined,
           is_premium: isPremium,
-          time_limit: timeLimit,
+          time_limit: timeLimit ?? undefined,
         }
 
         console.log("Updating quiz:", updateData)
@@ -632,7 +528,7 @@ Lưu ý: Để chỉnh sửa câu hỏi, vui lòng tạo quiz mới.`)
           description: `Quiz tạo bởi ${user?.name || "User"}`,
           image: quizImage || undefined,
           is_premium: isPremium,
-          time_limit: timeLimit,
+          time_limit: timeLimit ?? undefined,
         }
 
         console.log("Creating quiz:", quizData)
@@ -705,21 +601,7 @@ Lưu ý: Để chỉnh sửa câu hỏi, vui lòng tạo quiz mới.`)
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
 
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm mb-8 rounded-lg">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
-                <BookOpen className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-lg font-semibold text-gray-900">
-                {quizType === "image" ? "Tạo Quiz Hình Ảnh" : "Tạo Quiz Cơ Bản"}
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
+
 
       <main className="max-w-4xl mx-auto space-y-8">
         {/* Quiz Details Card */}

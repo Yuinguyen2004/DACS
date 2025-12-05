@@ -234,11 +234,12 @@ export class AuthController {
 
       if (!user) {
         // Auto-create user from Google login
+        // Google accounts are always considered verified
         const userData = await usersService.createFromFirebase({
           email: decodedToken.email,
           firebaseUid: decodedToken.uid,
           displayName: dto.name || decodedToken.name || '',
-          emailVerified: decodedToken.email_verified || false,
+          emailVerified: true, // Google accounts are always verified
           photoURL: dto.photoURL || decodedToken.picture || '',
         });
         user = userData;
@@ -255,6 +256,12 @@ export class AuthController {
           if (updatedUser) {
             user = updatedUser;
           }
+        }
+        // Activate user if they log in with Google (Google accounts are verified)
+        if (user.status === 'inactive') {
+          user.status = 'active';
+          user.emailVerified = true;
+          await user.save();
         }
       }
 

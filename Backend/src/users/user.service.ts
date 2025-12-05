@@ -37,7 +37,7 @@ export class UsersService {
       password_hash: hash,
       role: 'user', // default role
       package_id: null, // reference to Packages collection, default to null until assigned
-      status: 'inactive', // default status
+      status: 'active', // default status - active on registration
       avatar: dto.avatar, // add avatar support
     });
     await user.save();
@@ -118,24 +118,20 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // Chỉ cho phép hủy subscription nếu user đang có subscription active
-    if (
-      !user.package_id ||
-      user.package_id.toString() === 'guest' ||
-      user.status !== 'active'
-    ) {
+    // Only allow cancellation if user has an active subscription
+    if (!user.package_id || user.status !== 'active') {
       throw new BadRequestException('No active subscription to cancel');
     }
 
-    // Reset về package guest và xóa hoàn toàn các thông tin subscription
+    // Check if subscription is already canceled
+    if (user.subscriptionCanceledAt) {
+      throw new BadRequestException('Subscription is already canceled');
+    }
+
+    // Mark subscription as canceled (end-of-period cancellation)
+    // User keeps premium access until subscriptionEndDate
     const updateData = {
-      package_id: 'guest',
-      $unset: {
-        subscriptionType: 1,
-        subscriptionStartDate: 1,
-        subscriptionEndDate: 1,
-      },
-      status: 'inactive',
+      subscriptionCanceledAt: new Date(),
     };
 
     const updatedUser = await this.userModel.findByIdAndUpdate(
@@ -189,8 +185,9 @@ export class UsersService {
       emailVerified: firebaseData.emailVerified,
       photoURL: firebaseData.photoURL,
       role: 'user',
-      package_id: 'guest',
-      status: firebaseData.emailVerified ? 'active' : 'inactive',
+      // Don't set package_id - leave it undefined for free users
+      // Setting 'guest' string breaks populate() which expects ObjectId
+      status: 'active', // default active on registration
     });
 
     await user.save();
@@ -240,8 +237,9 @@ export class UsersService {
       displayName: userData.displayName || userData.name,
       emailVerified: userData.emailVerified || false,
       role: 'user',
-      package_id: 'guest',
-      status: userData.emailVerified ? 'active' : 'inactive',
+      // Don't set package_id - leave it as null (default) for free users
+      // Setting 'guest' string breaks validation since package_id expects ObjectId
+      status: 'active', // default active on registration
     });
 
     await user.save();
@@ -350,12 +348,9 @@ export class UsersService {
       this.userModel.countDocuments(),
       this.userModel.countDocuments({ role: 'admin' }),
       this.userModel.countDocuments({ isOnline: true }),
+      // Premium users have a valid package_id (not null)
       this.userModel.countDocuments({
-        $and: [
-          { package_id: { $ne: 'guest' } },
-          { package_id: { $exists: true } },
-          { package_id: { $ne: null } }
-        ]
+        package_id: { $ne: null }
       }),
       this.quizModel.countDocuments(),
       this.testAttemptModel.countDocuments(),

@@ -42,12 +42,6 @@ export class UserBlockGuard {
       emailVerified: dbUser.emailVerified || firebaseUser.emailVerified
     };
 
-    console.log('[USER_BLOCK_GUARD] User access granted:', {
-      userId: dbUser._id.toString(),
-      role: dbUser.role,
-      status: dbUser.status
-    });
-
     return true;
   }
 }

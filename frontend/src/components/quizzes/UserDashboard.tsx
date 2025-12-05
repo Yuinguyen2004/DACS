@@ -17,6 +17,9 @@ import {
   HelpCircle,
   Key,
   Save,
+  AlertCircle,
+  Calendar,
+  XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -48,54 +51,22 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Pie, PieChart, Cell, ResponsiveContainer } from "recharts"
 import { Link, useNavigate } from "react-router-dom"
 import { authAPI, userUtils, userAPI, testAttemptAPI } from "../../services/api"
 import { User as UserType, TestAttempt } from "../../types/types"
-
-// Mock Featured Quizzes Data (kept for "Recommended Quizzes" section)
-const featuredQuizzes = [
-  {
-    id: 101,
-    title: "Python for Beginners",
-    description: "Start your coding journey with Python!",
-    questions: 20,
-    isPremium: false,
-    category: "Programming",
-  },
-  {
-    id: 102,
-    title: "Data Science Fundamentals",
-    description: "Explore the basics of data analysis and machine learning.",
-    questions: 30,
-    isPremium: true,
-    category: "Technology",
-  },
-  {
-    id: 103,
-    title: "History of Art",
-    description: "Discover major art movements and famous artists.",
-    questions: 25,
-    isPremium: false,
-    category: "Arts",
-  },
-  {
-    id: 104,
-    title: "Financial Literacy",
-    description: "Learn essential concepts for managing your money.",
-    questions: 15,
-    isPremium: true,
-    category: "Finance",
-  },
-]
-
-// Mock Progress Data for Chart
-const progressData = [
-  { name: "Completed", value: 70, color: "hsl(var(--chart-1))" },
-  { name: "In Progress", value: 20, color: "hsl(var(--chart-2))" },
-  { name: "Not Started", value: 10, color: "hsl(var(--chart-3))" },
-]
 
 export default function UserDashboardPage() {
   const navigate = useNavigate()
@@ -107,6 +78,30 @@ export default function UserDashboardPage() {
     name: '',
     email: '',
   })
+  const [isCanceling, setIsCanceling] = useState(false)
+
+  // Calculate progress data from actual user attempts
+  const progressData = (() => {
+    const completed = userAttempts.filter(a => a.status === 'completed').length
+    const inProgress = userAttempts.filter(a => a.status !== 'completed').length
+    const total = completed + inProgress
+
+    if (total === 0) {
+      // No attempts yet - show empty state
+      return [
+        { name: "Completed", value: 0, color: "hsl(var(--chart-1))" },
+        { name: "In Progress", value: 0, color: "hsl(var(--chart-2))" },
+      ]
+    }
+
+    const completedPercent = Math.round((completed / total) * 100)
+    const inProgressPercent = 100 - completedPercent
+
+    return [
+      { name: "Completed", value: completedPercent, color: "hsl(var(--chart-1))" },
+      { name: "In Progress", value: inProgressPercent, color: "hsl(var(--chart-2))" },
+    ]
+  })()
 
   // Load user data on component mount
   useEffect(() => {
@@ -114,7 +109,7 @@ export default function UserDashboardPage() {
       try {
         console.log('[PROFILE] Loading user profile data...')
         setIsLoading(true)
-        
+
         // Check authentication
         const currentUser = authAPI.getCurrentUser()
         if (!currentUser) {
@@ -122,14 +117,14 @@ export default function UserDashboardPage() {
           navigate('/')
           return
         }
-        
+
         console.log('[PROFILE] Authenticated user found:', currentUser.name)
         setUser(currentUser)
         setProfileForm({
           name: currentUser.name || '',
           email: currentUser.email || '',
         })
-        
+
         // Fetch user's test attempts
         try {
           console.log('[PROFILE] Fetching user test attempts...')
@@ -140,7 +135,7 @@ export default function UserDashboardPage() {
           console.warn('[PROFILE] Failed to load test attempts:', attemptError)
           // Don't fail the whole page if attempts can't be loaded
         }
-        
+
       } catch (error: any) {
         console.error('[PROFILE] Failed to load user data:', error)
         if (error.response?.status === 401) {
@@ -152,7 +147,7 @@ export default function UserDashboardPage() {
         setIsLoading(false)
       }
     }
-    
+
     loadUserData()
   }, [navigate])
 
@@ -168,11 +163,11 @@ export default function UserDashboardPage() {
         name: profileForm.name,
         email: profileForm.email,
       })
-      
+
       // Update local storage and state
       localStorage.setItem('user', JSON.stringify(updatedUser))
       setUser(updatedUser)
-      
+
       alert('Cập nhật thông tin thành công!')
       console.log('[PROFILE] Profile updated successfully')
     } catch (error: any) {
@@ -185,14 +180,53 @@ export default function UserDashboardPage() {
     alert('Tính năng đổi mật khẩu sẽ được triển khai trong phiên bản tới.')
     // TODO: Implement password change functionality
   }
-  
+
   const handleLogout = async () => {
     console.log('[PROFILE] User logging out')
     await authAPI.logout()
     console.log('[PROFILE] Logout successful, redirecting to login')
     navigate('/')
   }
-  
+
+  const handleCancelSubscription = async () => {
+    try {
+      setIsCanceling(true)
+      console.log('[PROFILE] Canceling subscription...')
+      await userAPI.cancelSubscription()
+
+      // Refresh user data
+      const updatedUser = await userAPI.getProfile()
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      setUser(updatedUser)
+
+      console.log('[PROFILE] Subscription canceled successfully')
+      alert('Hủy gói thành công. Bạn vẫn có thể sử dụng Premium đến hết thời hạn.')
+    } catch (error: any) {
+      console.error('[PROFILE] Failed to cancel subscription:', error)
+      alert(error.response?.data?.message || 'Không thể hủy gói. Vui lòng thử lại sau.')
+    } finally {
+      setIsCanceling(false)
+    }
+  }
+
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return 'N/A'
+    return new Date(date).toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
+  }
+
+  const formatSubscriptionType = (type: string | undefined) => {
+    switch (type?.toLowerCase()) {
+      case 'monthly': return 'Hàng tháng'
+      case 'yearly': return 'Hàng năm'
+      case 'lifetime': return 'Trọn đời'
+      default: return 'Premium'
+    }
+  }
+
   // Loading state
   if (isLoading) {
     return (
@@ -204,7 +238,7 @@ export default function UserDashboardPage() {
       </div>
     )
   }
-  
+
   // Error state
   if (error) {
     return (
@@ -220,7 +254,7 @@ export default function UserDashboardPage() {
       </div>
     )
   }
-  
+
   // No user found
   if (!user) {
     return (
@@ -244,19 +278,6 @@ export default function UserDashboardPage() {
     return "bg-red-100 text-red-800"
   }
 
-  const getFeaturedQuizStatus = (isPremium: boolean) => {
-    return isPremium ? (
-      <Badge className="bg-gradient-to-r from-orange-400 to-pink-400 text-white">
-        <Crown className="w-3 h-3 mr-1" />
-        Premium
-      </Badge>
-    ) : (
-      <Badge variant="outline" className="text-green-600 border-green-600">
-        Free
-      </Badge>
-    )
-  }
-
   const chartConfig = {
     completed: {
       label: "Completed",
@@ -265,10 +286,6 @@ export default function UserDashboardPage() {
     inProgress: {
       label: "In Progress",
       color: "hsl(var(--chart-2))",
-    },
-    notStarted: {
-      label: "Not Started",
-      color: "hsl(var(--chart-3))",
     },
   }
 
@@ -331,7 +348,7 @@ export default function UserDashboardPage() {
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton>
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.name} />
+                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
                       <AvatarFallback className="bg-gradient-to-br from-orange-400 to-pink-400 text-white text-sm">
                         {user.name
                           .split(" ")
@@ -366,7 +383,7 @@ export default function UserDashboardPage() {
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className="text-red-600 focus:text-red-600 cursor-pointer"
                     onClick={handleLogout}
                   >
@@ -476,13 +493,13 @@ export default function UserDashboardPage() {
                       </div>
                       <div>
                         <p className="text-3xl font-bold text-gray-900">
-                          {userAttempts.length > 0 
+                          {userAttempts.length > 0
                             ? Math.round(
                                 userAttempts
                                   .filter(a => a.status === 'completed')
                                   .reduce((acc, a) => acc + (a.score || 0), 0) /
                                 userAttempts.filter(a => a.status === 'completed').length
-                              ) 
+                              )
                             : 0}%
                         </p>
                         <p className="text-sm text-gray-600">Điểm trung bình</p>
@@ -596,7 +613,7 @@ export default function UserDashboardPage() {
               <div className="flex items-center space-x-4">
                 <Avatar className="h-20 w-20">
                   <AvatarImage
-                    src={user.avatar_url || "/placeholder.svg?height=80&width=80"}
+                    src={user.avatar || "/placeholder.svg?height=80&width=80"}
                     alt={user.name}
                   />
                   <AvatarFallback className="bg-gradient-to-br from-orange-400 to-pink-400 text-white text-2xl">
@@ -671,6 +688,124 @@ export default function UserDashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Subscription Management Section - Only for Premium Users */}
+          {userUtils.hasPremiumAccess(user) && (
+            <Card className="shadow-sm border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-gray-900">Quản lý gói đăng ký</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Xem thông tin và quản lý gói Premium của bạn.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-gradient-to-r from-orange-50 to-pink-50 rounded-lg p-6 border border-orange-200">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
+                        <Crown className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Gói {formatSubscriptionType(user.subscriptionType)}
+                        </h3>
+                        {user.subscriptionCanceledAt ? (
+                          <p className="text-orange-600 font-medium flex items-center">
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Đã hủy - Hết hạn vào {formatDate(user.subscriptionEndDate)}
+                          </p>
+                        ) : user.subscriptionType?.toLowerCase() === 'lifetime' ? (
+                          <p className="text-green-600 font-medium flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            Truy cập trọn đời
+                          </p>
+                        ) : (
+                          <p className="text-gray-600 flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            Còn hiệu lực đến {formatDate(user.subscriptionEndDate)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subscription Details */}
+                  <Separator className="my-4" />
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Loại gói</p>
+                      <p className="font-medium text-gray-900">{formatSubscriptionType(user.subscriptionType)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Ngày bắt đầu</p>
+                      <p className="font-medium text-gray-900">{formatDate(user.subscriptionStartDate)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Ngày hết hạn</p>
+                      <p className="font-medium text-gray-900">
+                        {user.subscriptionType?.toLowerCase() === 'lifetime' ? 'Không giới hạn' : formatDate(user.subscriptionEndDate)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Trạng thái</p>
+                      <p className={`font-medium ${user.subscriptionCanceledAt ? 'text-orange-600' : 'text-green-600'}`}>
+                        {user.subscriptionCanceledAt ? 'Đã hủy' : 'Đang hoạt động'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Cancel Button - Only show if not canceled and not lifetime */}
+                  {!user.subscriptionCanceledAt && user.subscriptionType?.toLowerCase() !== 'lifetime' && (
+                    <>
+                      <Separator className="my-4" />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent"
+                            disabled={isCanceling}
+                          >
+                            {isCanceling ? (
+                              <>
+                                <span className="animate-spin mr-2">⏳</span>
+                                Đang xử lý...
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Hủy gói đăng ký
+                              </>
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center">
+                              <AlertCircle className="w-5 h-5 mr-2 text-orange-500" />
+                              Bạn có chắc chắn muốn hủy?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Bạn vẫn có thể sử dụng các tính năng Premium đến ngày {formatDate(user.subscriptionEndDate)}.
+                              Sau đó, tài khoản sẽ được chuyển về gói Miễn phí.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Giữ gói</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleCancelSubscription}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Xác nhận hủy
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </SidebarInset>
     </SidebarProvider>

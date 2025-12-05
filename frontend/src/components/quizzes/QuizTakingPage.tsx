@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { ChevronLeft, ChevronRight, Clock, BookOpen, Check, Loader2, AlertCircle, Image as ImageIcon } from "lucide-react"
+import { ChevronLeft, ChevronRight, Clock, BookOpen, Check, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom"  // ✅ Thêm useSearchParams
 import { quizAPI, testAttemptAPI } from "../../services/api"
-import type { QuizWithDetails, QuestionWithAnswers, TestAttempt, TestAttemptAnswer } from "../../types/types"
+import type { QuizWithDetails, QuestionWithAnswers, TestAttempt, TestAttemptAnswer, TestAttemptStatus } from "../../types/types"
 
 // Interface cho quiz question hỗ trợ hình ảnh
 interface QuizQuestion {
@@ -136,7 +136,7 @@ export default function QuizTakingPage() {
   const hasStartedAttemptRef = useRef(false)
 
   // Resume quiz feature state
-  const [resumeToken, setResumeToken] = useState<string | null>(null)
+  const [_resumeToken, setResumeToken] = useState<string | null>(null)
   const [isResuming, setIsResuming] = useState(false)
   const [lastAutosave, setLastAutosave] = useState<Date | null>(null)
   const [clientSeq, setClientSeq] = useState(0)
@@ -370,7 +370,7 @@ export default function QuizTakingPage() {
         if (startResponse.draft_answers && startResponse.draft_answers.length > 0) {
           console.log('[RESUME] Loading draft answers:', startResponse.draft_answers.length)
           const draftAnswersMap: { [questionId: string]: string } = {}
-          startResponse.draft_answers.forEach(answer => {
+          startResponse.draft_answers.forEach((answer: TestAttemptAnswer) => {
             draftAnswersMap[answer.question_id] = answer.selected_answer_id
           })
           setSelectedAnswers(draftAnswersMap)
@@ -381,14 +381,15 @@ export default function QuizTakingPage() {
           quiz_id: quizId!,
           user_id: "",
           started_at: startResponse.started_at,
-          status: "in_progress",
+          status: "in_progress" as TestAttemptStatus,
           total_questions: startResponse.total_questions,
           answers: startResponse.draft_answers || [],
           score: 0,
-          completed_at: null,
-          time_taken: null,
+          completed_at: undefined,
           resume_token: startResponse.resume_token,
           draft_answers: startResponse.draft_answers,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         }
 
         setTestAttempt(testAttempt)

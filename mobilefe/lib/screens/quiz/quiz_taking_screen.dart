@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +29,9 @@ class _QuizTakingScreenState extends ConsumerState<QuizTakingScreen> {
   late int _remainingSeconds;
   bool _isSubmitting = false;
   Timer? _autosaveDebounce;
+
+  // Cache for decoded base64 images to prevent re-decoding on every rebuild
+  final Map<String, Uint8List> _imageCache = {};
 
   @override
   void initState() {
@@ -164,6 +169,7 @@ class _QuizTakingScreenState extends ConsumerState<QuizTakingScreen> {
           correctCount: result['correct_answers'] ?? 0,
           score: result['score'] ?? 0,
           attemptId: widget.payload.attemptId,
+          isTimeOut: timeUp,
         ),
       );
     } catch (e) {
@@ -198,6 +204,55 @@ class _QuizTakingScreenState extends ConsumerState<QuizTakingScreen> {
         _currentIndex--;
       });
     }
+  }
+
+  Widget _buildQuestionImage(String imageUrl) {
+    // Handle base64 data URLs
+    if (imageUrl.startsWith('data:')) {
+      try {
+        // Check cache first to avoid re-decoding on every rebuild
+        if (!_imageCache.containsKey(imageUrl)) {
+          final base64Data = imageUrl.split(',').last;
+          _imageCache[imageUrl] = base64Decode(base64Data);
+        }
+
+        return Image.memory(
+          _imageCache[imageUrl]!,
+          height: 200,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          // Use gaplessPlayback to prevent flashing during rebuilds
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) => Container(
+            height: 200,
+            color: Colors.grey[300],
+            child: const Center(child: Icon(Icons.broken_image, size: 48)),
+          ),
+        );
+      } catch (e) {
+        debugPrint('Error decoding base64 image: $e');
+        return Container(
+          height: 200,
+          color: Colors.grey[300],
+          child: const Center(child: Icon(Icons.broken_image, size: 48)),
+        );
+      }
+    }
+
+    // Handle network URLs
+    return Image.network(
+      imageUrl,
+      height: 200,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      // Use gaplessPlayback to prevent flashing during rebuilds
+      gaplessPlayback: true,
+      errorBuilder: (context, error, stackTrace) => Container(
+        height: 200,
+        color: Colors.grey[300],
+        child: const Center(child: Icon(Icons.broken_image, size: 48)),
+      ),
+    );
   }
 
   @override
@@ -274,12 +329,7 @@ class _QuizTakingScreenState extends ConsumerState<QuizTakingScreen> {
                         const SizedBox(height: 16),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                          child: Image.network(
-                            question.imageUrl!,
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
+                          child: _buildQuestionImage(question.imageUrl!),
                         ),
                       ],
                       const SizedBox(height: 32),

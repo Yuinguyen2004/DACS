@@ -1,9 +1,14 @@
+import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobilefe/config/app_router.dart';
 import 'package:mobilefe/config/app_theme.dart';
+import 'package:mobilefe/l10n/app_localizations.dart';
 import 'package:mobilefe/providers/app_providers.dart';
 import 'package:mobilefe/widgets/primary_button.dart';
 import 'package:mobilefe/widgets/social_button.dart';
@@ -23,6 +28,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+  bool _isGoogleSignInLoading = false;
+
+  // Google Sign In instance - using web client ID from Firebase console
+  // serverClientId is required to get idToken for backend authentication
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: ['email', 'profile'],
+    serverClientId:
+        '529424604089-hcdqr3r3obegmmbd2i68shn23i8lcfv8.apps.googleusercontent.com',
+  );
 
   @override
   void initState() {
@@ -34,21 +48,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
+      ),
+    );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
-    ));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
 
     _animationController.forward();
   }
@@ -62,20 +75,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _handleLogin(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
     try {
       final apiService = ref.read(apiServiceProvider);
-      await apiService.login(
-        _emailController.text,
-        _passwordController.text,
-      );
-      
-      // Refresh user provider
-      await ref.read(currentUserProvider.notifier).fetchUser();
-      
+      await apiService.login(_emailController.text, _passwordController.text);
+
+      // Refresh user provider with retry
+      bool fetchSuccess = await ref.read(currentUserProvider.notifier).fetchUser();
+
+      // Retry once if fetch failed
+      if (!fetchSuccess) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        fetchSuccess = await ref.read(currentUserProvider.notifier).fetchUser();
+      }
+
+      // Invalidate bootstrap provider so it will re-fetch on home screen if needed
+      ref.invalidate(userBootstrapProvider);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Login successful!'),
+            content: Text(l10n.loginSuccessful),
             backgroundColor: AppTheme.accentBright,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -87,9 +107,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       }
     } catch (e) {
       if (mounted) {
+        String errorMessage = l10n.loginFailed;
+
+        if (e is DioException) {
+          // Extract error message from API response
+          final responseData = e.response?.data;
+          if (responseData is Map<String, dynamic> &&
+              responseData['message'] != null) {
+            errorMessage = responseData['message'];
+          } else if (e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout ||
+              e.type == DioExceptionType.sendTimeout) {
+            errorMessage = l10n.connectionTimeout;
+          } else if (e.type == DioExceptionType.connectionError) {
+            errorMessage = l10n.connectionError;
+          }
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Login failed: ${e.toString()}'),
+            content: Text(errorMessage),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -101,10 +138,146 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
+  /// Handle Google Sign-In
+  Future<void> _handleGoogleSignIn(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
+
+    // Prevent multiple taps
+    if (_isGoogleSignInLoading) return;
+
+    setState(() {
+      _isGoogleSignInLoading = true;
+    });
+
+    try {
+      debugPrint('🔐 [GOOGLE] Starting Google Sign-In...');
+
+      // Sign out first to ensure account picker shows
+      await _googleSignIn.signOut();
+
+      // Trigger Google Sign-In
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+      if (googleUser == null) {
+        // User cancelled the sign-in
+        debugPrint('🔐 [GOOGLE] User cancelled sign-in');
+        if (mounted) {
+          setState(() {
+            _isGoogleSignInLoading = false;
+          });
+        }
+        return;
+      }
+
+      debugPrint('🔐 [GOOGLE] Got Google user: ${googleUser.email}');
+
+      // Get authentication details
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      debugPrint('🔐 [GOOGLE] Got Google auth tokens');
+
+      if (googleAuth.idToken == null) {
+        throw Exception('Failed to get Google ID token');
+      }
+
+      // Create Firebase credential from Google tokens
+      final credential = GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+        accessToken: googleAuth.accessToken,
+      );
+
+      // Sign in to Firebase with the Google credential
+      debugPrint(
+        '🔐 [GOOGLE] Signing in to Firebase with Google credential...',
+      );
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+
+      // Get Firebase ID token (this is what the backend expects)
+      final firebaseIdToken = await userCredential.user?.getIdToken();
+
+      if (firebaseIdToken == null) {
+        throw Exception('Failed to get Firebase ID token');
+      }
+
+      debugPrint('🔐 [GOOGLE] Got Firebase ID token, calling backend...');
+
+      // Call backend API with Firebase ID token
+      final apiService = ref.read(apiServiceProvider);
+      await apiService.loginWithGoogle(
+        idToken: firebaseIdToken,
+        email: googleUser.email,
+        name: googleUser.displayName,
+        photoURL: googleUser.photoUrl,
+      );
+
+      // Refresh user provider with retry
+      bool fetchSuccess = await ref.read(currentUserProvider.notifier).fetchUser();
+
+      // Retry once if fetch failed
+      if (!fetchSuccess) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        fetchSuccess = await ref.read(currentUserProvider.notifier).fetchUser();
+      }
+
+      // Invalidate bootstrap provider so it will re-fetch on home screen if needed
+      ref.invalidate(userBootstrapProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.loginSuccessful),
+            backgroundColor: AppTheme.accentBright,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        context.go(AppRoute.dashboard);
+      }
+    } catch (e) {
+      debugPrint('❌ [GOOGLE] Error: $e');
+      if (mounted) {
+        String errorMessage = l10n.loginFailed;
+
+        if (e is DioException) {
+          final responseData = e.response?.data;
+          if (responseData is Map<String, dynamic> &&
+              responseData['message'] != null) {
+            errorMessage = responseData['message'];
+          }
+        } else if (e.toString().contains('network_error')) {
+          errorMessage = l10n.connectionError;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGoogleSignInLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool obscurePassword = ref.watch(loginPasswordVisibilityProvider);
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -162,8 +335,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     const SizedBox(height: 32),
                     Center(
                       child: Text(
-                        'Welcome back! 🎯',
-                        style: textTheme.displayMedium?.copyWith(
+                        '${l10n.welcomeBack} 🎯',
+                        style: textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.w800,
                           color: AppTheme.textPrimary,
                         ),
@@ -172,7 +345,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
-                        'Continue your learning journey',
+                        l10n.signInToContinue,
                         style: textTheme.bodyLarge?.copyWith(
                           color: AppTheme.textSecondary,
                         ),
@@ -194,7 +367,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         ],
                       ),
                       child: TextInputField(
-                        label: 'Email address',
+                        label: l10n.email,
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                       ),
@@ -215,16 +388,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         ],
                       ),
                       child: TextInputField(
-                        label: 'Password',
+                        label: l10n.password,
                         controller: _passwordController,
                         obscureText: obscurePassword,
                         suffix: IconButton(
                           icon: Icon(
-                            obscurePassword ? LucideIcons.eyeOff : LucideIcons.eye,
+                            obscurePassword
+                                ? LucideIcons.eyeOff
+                                : LucideIcons.eye,
                             color: AppTheme.textMuted,
                           ),
                           onPressed: () {
-                            ref.read(loginPasswordVisibilityProvider.notifier).toggle();
+                            ref
+                                .read(loginPasswordVisibilityProvider.notifier)
+                                .toggle();
                           },
                         ),
                       ),
@@ -237,10 +414,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       child: TextButton(
                         onPressed: () {},
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                         ),
                         child: Text(
-                          'Forgot password?',
+                          l10n.forgotPassword,
                           style: textTheme.bodyMedium?.copyWith(
                             color: AppTheme.primaryVibrant,
                             fontWeight: FontWeight.w600,
@@ -252,7 +432,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                     // Login button
                     PrimaryButton(
-                      label: 'Sign In',
+                      label: l10n.login,
                       leading: const Icon(LucideIcons.logIn, size: 20),
                       onPressed: () => _handleLogin(context),
                       size: PrimaryButtonSize.large,
@@ -279,7 +459,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: Text(
-                            'or continue with',
+                            l10n.orContinueWith,
                             style: textTheme.bodySmall?.copyWith(
                               color: AppTheme.textSecondary,
                               fontWeight: FontWeight.w500,
@@ -320,11 +500,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 ),
                               ],
                             ),
-                            child: SocialButton(
-                              icon: LucideIcons.mail,
-                              label: 'Google',
-                              onPressed: () {},
-                            ),
+                            child: _isGoogleSignInLoading
+                                ? const SizedBox(
+                                    height: 48,
+                                    child: Center(
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppTheme.primaryVibrant,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : SocialButton(
+                                    icon: LucideIcons.mail,
+                                    label: 'Google',
+                                    onPressed: () =>
+                                        _handleGoogleSignIn(context),
+                                  ),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -358,7 +553,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: <Widget>[
                           Text(
-                            "New to Quizly? ",
+                            l10n.dontHaveAccount,
                             style: textTheme.bodyMedium?.copyWith(
                               color: AppTheme.textSecondary,
                             ),
@@ -366,10 +561,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                           TextButton(
                             onPressed: () => context.push(AppRoute.register),
                             style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
                             ),
                             child: Text(
-                              'Create Account',
+                              l10n.createAccount,
                               style: textTheme.bodyMedium?.copyWith(
                                 color: AppTheme.primaryVibrant,
                                 fontWeight: FontWeight.w700,

@@ -14,11 +14,11 @@ import { Link, useSearchParams } from "react-router-dom";
 
 export default function PaymentFailurePage() {
   const [searchParams] = useSearchParams();
-  
+
   // Get error details from URL parameters
   const reason = searchParams.get('reason') || 'unknown_error';
   const errorCode = searchParams.get('errorCode') || '';
-  
+
   // Map error reasons to Vietnamese messages
   const getErrorMessage = (reason: string, errorCode: string): string => {
     switch (reason) {
@@ -27,10 +27,10 @@ export default function PaymentFailurePage() {
       case 'payment_not_found':
         return 'Không tìm thấy thông tin thanh toán. Vui lòng liên hệ hỗ trợ.';
       case 'payment_failed':
-        return errorCode === '24' ? 'Giao dịch bị hủy bởi người dùng.' : 
-               errorCode === '51' ? 'Tài khoản không đủ số dư.' :
-               errorCode === '65' ? 'Tài khoản ngân hàng bị hạn chế.' :
-               'Thanh toán thất bại. Vui lòng kiểm tra thông tin và thử lại.';
+        return errorCode === '24' ? 'Giao dịch bị hủy bởi người dùng.' :
+          errorCode === '51' ? 'Tài khoản không đủ số dư.' :
+            errorCode === '65' ? 'Tài khoản ngân hàng bị hạn chế.' :
+              'Thanh toán thất bại. Vui lòng kiểm tra thông tin và thử lại.';
       case 'already_processed':
         return 'Giao dịch này đã được xử lý trước đó.';
       case 'processing_error':
@@ -43,7 +43,7 @@ export default function PaymentFailurePage() {
         return 'Đã xảy ra lỗi không xác định. Vui lòng liên hệ hỗ trợ.';
     }
   };
-  
+
   const transactionDetails = {
     paymentMethod: reason.includes('paypal') ? "PayPal" : "VNPay",
     attemptTime: new Date().toLocaleString("vi-VN", {
@@ -125,7 +125,7 @@ export default function PaymentFailurePage() {
             </div>
 
             <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
-              <Link to="/select-payment">
+              <Link to="/payment">
                 <Button className="h-12 px-8 text-lg font-semibold bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 text-white shadow-lg transition-all duration-300 ease-in-out transform hover:-translate-y-1">
                   <RotateCcw className="w-5 h-5 mr-3" />
                   Thử lại

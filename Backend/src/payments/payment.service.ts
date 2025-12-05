@@ -139,22 +139,11 @@ export class PaymentService {
       .map((key) => `${key}=${encodeURIComponent(sortedParams[key])}`)
       .join('&');
 
-    // Ghi log thông tin chữ ký chi tiết để debug
-    this.logger.debug('=== VNPAY SIGNATURE DEBUG INFO ===');
-    this.logger.debug(`Hash Secret: ${vnpHashSecret}`);
-    this.logger.debug(
-      `Sorted Parameters: ${JSON.stringify(sortedParams, null, 2)}`,
-    );
-    this.logger.debug(`Signature String: ${signatureString}`);
-
     // Tạo chữ ký
     const hmac = crypto.createHmac('sha512', vnpHashSecret);
     const secureHash = hmac
       .update(Buffer.from(signatureString, 'utf-8'))
       .digest('hex');
-
-    this.logger.debug(`Generated SecureHash: ${secureHash}`);
-    this.logger.debug('=== END SIGNATURE DEBUG INFO ===');
 
     // Thêm chữ ký vào tham số
     sortedParams.vnp_SecureHash = secureHash;
@@ -224,24 +213,11 @@ export class PaymentService {
       .map((key) => `${key}=${sortedParams[key]}`)
       .join('&');
 
-    // Ghi log thông tin xác minh chi tiết để debug
-    this.logger.debug('=== VNPAY VERIFICATION DEBUG INFO ===');
-    this.logger.debug(`Hash Secret: ${vnpHashSecret}`);
-    this.logger.debug(`Received SecureHash: ${secureHash}`);
-    this.logger.debug(
-      `Sorted Parameters: ${JSON.stringify(sortedParams, null, 2)}`,
-    );
-    this.logger.debug(`Verification String: ${signatureString}`);
-
     // Tính toán chữ ký
     const hmac = crypto.createHmac('sha512', vnpHashSecret);
     const calculatedHash = hmac
       .update(Buffer.from(signatureString, 'utf-8'))
       .digest('hex');
-
-    this.logger.debug(`Calculated SecureHash: ${calculatedHash}`);
-    this.logger.debug(`Hashes Match: ${calculatedHash === secureHash}`);
-    this.logger.debug('=== END VERIFICATION DEBUG INFO ===');
 
     const isValid = calculatedHash === secureHash;
     this.logger.log(`Signature verification: ${isValid ? 'VALID' : 'INVALID'}`);

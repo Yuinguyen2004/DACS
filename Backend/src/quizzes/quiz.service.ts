@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   Type,
 } from '@nestjs/common';
@@ -44,6 +45,8 @@ interface IExtractedQuestion {
  */
 @Injectable()
 export class QuizService {
+  private readonly logger = new Logger(QuizService.name);
+
   constructor(
     @InjectModel(Quiz.name) private quizModel: Model<Quiz>, // Model Quiz để thao tác với database
     @InjectModel(Question.name) private questionModel: Model<Question>, // Model Question
@@ -56,7 +59,7 @@ export class QuizService {
    * @returns Promise<Quiz[]> - Danh sách tất cả quiz kèm thông tin user tạo
    */
   async findAll() {
-    const quizzes = await this.quizModel.find().populate('user_id', 'username email');
+    const quizzes = await this.quizModel.find({ is_hidden: { $ne: true } }).populate('user_id', 'username email');
     
     // Add total question count for each quiz
     const quizzesWithDetails = await Promise.all(
@@ -90,7 +93,7 @@ export class QuizService {
    */
   async findNonPremiumQuizzes() {
     return this.quizModel
-      .find({ is_premium: false })
+      .find({ is_premium: false, is_hidden: { $ne: true } })
       .populate('user_id', 'username email');
   }
 
@@ -227,14 +230,12 @@ export class QuizService {
     let rawText = '';
     try {
       if (file.mimetype === 'application/pdf') {
-        console.log('[IMPORT] Extracting text from PDF...');
         const result = await pdfParse(file.buffer);
         rawText = result.text;
       } else if (
         file.mimetype ===
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       ) {
-        console.log('[IMPORT] Extracting text from DOCX...');
         const result = await mammoth.extractRawText({ buffer: file.buffer });
         rawText = result.value;
       } else {
@@ -358,16 +359,14 @@ export class QuizService {
     let rawText = '';
     try {
       if (file.mimetype === 'application/pdf') {
-        console.log('[FILE_PROCESSING] Extracting text from PDF...');
         const result = await pdfParse(file.buffer);
         rawText = result.text;
       } else {
-        console.log('[FILE_PROCESSING] Extracting text from DOCX...');
         const result = await mammoth.extractRawText({ buffer: file.buffer });
         rawText = result.value;
       }
     } catch (extractError) {
-      console.error('[FILE_PROCESSING] Text extraction failed:', extractError);
+      this.logger.error('[FILE_PROCESSING] Text extraction failed:', extractError);
       throw new BadRequestException(
         'Không thể đọc nội dung file. Vui lòng đảm bảo: ' +
         '1) File không bị mã hóa hoặc bảo vệ mật khẩu, ' +
@@ -385,8 +384,6 @@ export class QuizService {
         `Vui lòng kiểm tra file có chứa văn bản có thể đọc được.`,
       );
     }
-
-    console.log('[FILE_PROCESSING] Extracted text length:', rawText.length);
 
     // Validate desired question count if provided
     if (desiredQuestionCount !== undefined && desiredQuestionCount !== null) {
@@ -416,13 +413,6 @@ export class QuizService {
       options: q.options,
       correctAnswerIndex: q.options.findIndex((opt) => opt === q.correctAnswer),
     }));
-
-    // Log success
-    console.log('[FILE_PROCESSING] Successfully processed file:', {
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      questionCount: questions.length,
-    });
 
     return {
       questions: questions,
@@ -782,7 +772,7 @@ ${rawText}
         actualQuestionCount < desiredQuestionCount
       ) {
         // AI generated fewer than requested - log warning but accept
-        console.warn(
+        this.logger.warn(
           `[AI_QUESTION_COUNT] Requested ${desiredQuestionCount} but only ${actualQuestionCount} could be generated`,
         );
       }
@@ -792,17 +782,9 @@ ${rawText}
       parsedJson.requestedCount = desiredQuestionCount;
       parsedJson.actualCount = finalQuestions.length;
 
-      // Log success
-      console.log('[AI_SUCCESS] Successfully processed quiz:', {
-        title: parsedJson.title,
-        questionCount: finalQuestions.length,
-        requestedCount: desiredQuestionCount,
-        timeLimit: parsedJson.time_limit,
-      });
-
       return parsedJson;
     } catch (error) {
-      console.error('[AI_ERROR] Error processing Gemini API response:', error);
+      this.logger.error('[AI_ERROR] Error processing Gemini API response:', error);
 
       // Handle specific error types
       if (error.message === 'AI_TIMEOUT') {
@@ -980,7 +962,5 @@ ${rawText}
 
     // Xóa quiz
     await this.quizModel.findByIdAndDelete(quizId);
-
-    console.log(`[ADMIN] Deleted quiz ${quizId} with ${questions.length} questions`);
   }
 }

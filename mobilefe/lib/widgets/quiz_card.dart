@@ -1,9 +1,13 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobilefe/config/app_theme.dart';
 import 'package:mobilefe/config/app_router.dart';
+import 'package:mobilefe/l10n/app_localizations.dart';
 import 'package:mobilefe/models/quiz_model.dart';
 import 'package:mobilefe/providers/app_providers.dart';
 
@@ -30,20 +34,12 @@ class _QuizCardState extends ConsumerState<QuizCard>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.05,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
-    _opacityAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeIn,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
   }
 
   @override
@@ -52,14 +48,14 @@ class _QuizCardState extends ConsumerState<QuizCard>
     super.dispose();
   }
 
-  String _difficultyLabel(QuizDifficulty difficulty) {
+  String _difficultyLabel(QuizDifficulty difficulty, AppLocalizations l10n) {
     switch (difficulty) {
       case QuizDifficulty.beginner:
-        return 'Beginner';
+        return l10n.beginner;
       case QuizDifficulty.intermediate:
-        return 'Intermediate';
+        return l10n.intermediate;
       case QuizDifficulty.advanced:
-        return 'Advanced';
+        return l10n.advanced;
     }
   }
 
@@ -74,7 +70,7 @@ class _QuizCardState extends ConsumerState<QuizCard>
     }
   }
 
-  Widget _buildPremiumBadge(TextTheme textTheme) {
+  Widget _buildPremiumBadge(TextTheme textTheme, AppLocalizations l10n) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -96,14 +92,10 @@ class _QuizCardState extends ConsumerState<QuizCard>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            LucideIcons.crown,
-            size: 16,
-            color: Colors.white,
-          ),
+          const Icon(LucideIcons.crown, size: 16, color: Colors.white),
           const SizedBox(width: 6),
           Text(
-            'Premium',
+            l10n.premium,
             style: textTheme.labelSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -115,7 +107,7 @@ class _QuizCardState extends ConsumerState<QuizCard>
     );
   }
 
-  Widget _buildFreeBadge(TextTheme textTheme) {
+  Widget _buildFreeBadge(TextTheme textTheme, AppLocalizations l10n) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -137,14 +129,10 @@ class _QuizCardState extends ConsumerState<QuizCard>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            LucideIcons.badgeCheck,
-            size: 16,
-            color: Colors.white,
-          ),
+          const Icon(LucideIcons.badgeCheck, size: 16, color: Colors.white),
           const SizedBox(width: 6),
           Text(
-            'FREE',
+            l10n.free,
             style: textTheme.labelSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -173,11 +161,7 @@ class _QuizCardState extends ConsumerState<QuizCard>
           ),
           title: Row(
             children: [
-              Icon(
-                LucideIcons.lock,
-                color: AppTheme.warningWarm,
-                size: 24,
-              ),
+              Icon(LucideIcons.lock, color: AppTheme.warningWarm, size: 24),
               const SizedBox(width: 12),
               const Text('Premium Quiz'),
             ],
@@ -194,8 +178,14 @@ class _QuizCardState extends ConsumerState<QuizCard>
               Row(
                 children: [
                   _FeatureItem(icon: LucideIcons.zap, text: 'Advanced topics'),
-                  _FeatureItem(icon: LucideIcons.award, text: 'Expert questions'),
-                  _FeatureItem(icon: LucideIcons.trendingUp, text: 'Detailed analytics'),
+                  _FeatureItem(
+                    icon: LucideIcons.award,
+                    text: 'Expert questions',
+                  ),
+                  _FeatureItem(
+                    icon: LucideIcons.trendingUp,
+                    text: 'Detailed analytics',
+                  ),
                 ],
               ),
             ],
@@ -204,7 +194,10 @@ class _QuizCardState extends ConsumerState<QuizCard>
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
               child: const Text('Maybe later'),
             ),
@@ -217,7 +210,10 @@ class _QuizCardState extends ConsumerState<QuizCard>
               label: const Text('Upgrade Now'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppTheme.warningWarm,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -236,6 +232,10 @@ class _QuizCardState extends ConsumerState<QuizCard>
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
+    // Use responsive width: take 70% of screen width, with min 240 and max 300
+    final screenWidth = MediaQuery.of(context).size.width;
+    final cardWidth = (screenWidth * 0.7).clamp(240.0, 300.0);
 
     return AnimatedBuilder(
       animation: _animationController,
@@ -243,7 +243,7 @@ class _QuizCardState extends ConsumerState<QuizCard>
         return Transform.scale(
           scale: _scaleAnimation.value,
           child: Container(
-            width: 260,
+            width: cardWidth,
             margin: const EdgeInsets.only(right: 16),
             child: Material(
               color: Colors.transparent,
@@ -295,6 +295,7 @@ class _QuizCardState extends ConsumerState<QuizCard>
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       // Image section with overlay
                       Stack(
@@ -305,35 +306,7 @@ class _QuizCardState extends ConsumerState<QuizCard>
                             ),
                             child: Stack(
                               children: [
-                                Image.network(
-                                  widget.quiz.thumbnail,
-                                  height: 130,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      height: 130,
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            AppTheme.primaryVibrant.withOpacity(0.8),
-                                            AppTheme.secondaryVibrant.withOpacity(0.6),
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Icon(
-                                          LucideIcons.image,
-                                          size: 48,
-                                          color: Colors.white.withOpacity(0.7),
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                                _buildThumbnailImage(),
                                 // Gradient overlay
                                 Container(
                                   height: 130, // Match image height
@@ -358,8 +331,8 @@ class _QuizCardState extends ConsumerState<QuizCard>
                             top: 12,
                             right: 12,
                             child: widget.quiz.isPremiumContent
-                                ? _buildPremiumBadge(textTheme)
-                                : _buildFreeBadge(textTheme),
+                                ? _buildPremiumBadge(textTheme, l10n)
+                                : _buildFreeBadge(textTheme, l10n),
                           ),
                           Positioned(
                             bottom: 12,
@@ -385,7 +358,10 @@ class _QuizCardState extends ConsumerState<QuizCard>
                                   const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
-                                      _difficultyLabel(widget.quiz.difficulty),
+                                      _difficultyLabel(
+                                        widget.quiz.difficulty,
+                                        l10n,
+                                      ),
                                       style: textTheme.bodySmall?.copyWith(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
@@ -400,12 +376,13 @@ class _QuizCardState extends ConsumerState<QuizCard>
                       ),
 
                       // Content section
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                      Flexible(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                             // Category
                             Row(
                               children: [
@@ -416,10 +393,13 @@ class _QuizCardState extends ConsumerState<QuizCard>
                                       vertical: 4,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: _getDifficultyColor().withOpacity(0.1),
+                                      color: _getDifficultyColor().withOpacity(
+                                        0.1,
+                                      ),
                                       borderRadius: BorderRadius.circular(10),
                                       border: Border.all(
-                                        color: _getDifficultyColor().withOpacity(0.3),
+                                        color: _getDifficultyColor()
+                                            .withOpacity(0.3),
                                       ),
                                     ),
                                     child: Text(
@@ -456,7 +436,8 @@ class _QuizCardState extends ConsumerState<QuizCard>
                               children: [
                                 CircleAvatar(
                                   radius: 8,
-                                  backgroundColor: AppTheme.textMuted.withOpacity(0.2),
+                                  backgroundColor: AppTheme.textMuted
+                                      .withOpacity(0.2),
                                   child: Icon(
                                     LucideIcons.user,
                                     size: 10,
@@ -484,29 +465,30 @@ class _QuizCardState extends ConsumerState<QuizCard>
                                 _StatItem(
                                   icon: LucideIcons.helpCircle,
                                   label: '${widget.quiz.questionCount}',
-                                  sublabel: 'Qs',
+                                  sublabel: l10n.qs,
                                 ),
                                 const SizedBox(width: 12),
                                 _StatItem(
                                   icon: LucideIcons.clock3,
                                   label: '${widget.quiz.durationMinutes}',
-                                  sublabel: 'Min',
+                                  sublabel: l10n.min,
                                 ),
                               ],
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   IconData _getDifficultyIcon() {
     switch (widget.quiz.difficulty) {
@@ -517,6 +499,64 @@ class _QuizCardState extends ConsumerState<QuizCard>
       case QuizDifficulty.advanced:
         return LucideIcons.target;
     }
+  }
+
+  /// Builds the thumbnail image widget, handling both base64 data URLs and network URLs
+  Widget _buildThumbnailImage() {
+    final thumbnail = widget.quiz.thumbnail;
+
+    // Check if it's a base64 data URL
+    if (thumbnail.startsWith('data:image')) {
+      try {
+        final parts = thumbnail.split(',');
+        if (parts.length == 2) {
+          final Uint8List bytes = base64Decode(parts[1]);
+          return Image.memory(
+            bytes,
+            height: 130,
+            width: double.infinity,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+          );
+        }
+      } catch (e) {
+        debugPrint('Error decoding base64 image: $e');
+      }
+      return _buildPlaceholderImage();
+    }
+
+    // Otherwise treat as network URL
+    return Image.network(
+      thumbnail,
+      height: 130,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+    );
+  }
+
+  Widget _buildPlaceholderImage() {
+    return Container(
+      height: 130,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppTheme.primaryVibrant.withOpacity(0.8),
+            AppTheme.secondaryVibrant.withOpacity(0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          LucideIcons.image,
+          size: 48,
+          color: Colors.white.withOpacity(0.7),
+        ),
+      ),
+    );
   }
 }
 
@@ -536,11 +576,7 @@ class _StatItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 14,
-          color: AppTheme.textMuted,
-        ),
+        Icon(icon, size: 14, color: AppTheme.textMuted),
         const SizedBox(width: 4),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -570,10 +606,7 @@ class _StatItem extends StatelessWidget {
 }
 
 class _FeatureItem extends StatelessWidget {
-  const _FeatureItem({
-    required this.icon,
-    required this.text,
-  });
+  const _FeatureItem({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -583,18 +616,14 @@ class _FeatureItem extends StatelessWidget {
     return Expanded(
       child: Row(
         children: [
-          Icon(
-            icon,
-            size: 16,
-            color: AppTheme.accentBright,
-          ),
+          Icon(icon, size: 16, color: AppTheme.accentBright),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.textSecondary,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: AppTheme.textSecondary),
             ),
           ),
         ],

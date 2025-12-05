@@ -526,6 +526,8 @@ export class PaymentController {
       const vnpResponseCode = query.vnp_ResponseCode;
       const vnpTransactionNo = query.vnp_TransactionNo;
 
+      this.logger.debug(`VNPAY ResponseCode: ${vnpResponseCode}`);
+
       // Tìm thanh toán
       const payment = await this.paymentService.findByPaymentCode(paymentCode);
       if (!payment) {
@@ -586,6 +588,54 @@ export class PaymentController {
     const payment = await this.paymentService.findByPaymentCode(paymentCode);
     if (!payment) {
       throw new BadRequestException('Payment not found');
+    }
+
+    // If payment is still pending and it's a ZaloPay payment, query ZaloPay directly
+    if (
+      payment.status === PaymentStatus.PENDING &&
+      payment.payment_method === PaymentMethod.ZALOPAY &&
+      payment.vnp_transaction_no // This stores appTransId for ZaloPay
+    ) {
+      this.logger.log(`[ZaloPay] Checking status for pending payment: ${paymentCode}`);
+
+      const queryResult = await this.zaloPayService.queryOrderStatus(payment.vnp_transaction_no);
+
+      if (queryResult.isSuccess) {
+        // Update payment status to success
+        await this.paymentService.updatePaymentStatus(
+          (payment._id as any).toString(),
+          PaymentStatus.SUCCESS,
+          payment.vnp_transaction_no,
+          'success',
+        );
+        this.logger.log(`[ZaloPay] Payment ${paymentCode} updated to SUCCESS via query`);
+
+        return {
+          paymentCode: payment.payment_code,
+          status: 'success',
+          amount: payment.amount,
+          createdAt: payment.date,
+          vnpTransactionNo: payment.vnp_transaction_no,
+        };
+      } else if (queryResult.returnCode === 2) {
+        // Payment failed
+        await this.paymentService.updatePaymentStatus(
+          (payment._id as any).toString(),
+          PaymentStatus.FAILED,
+          payment.vnp_transaction_no,
+          'failed',
+        );
+        this.logger.log(`[ZaloPay] Payment ${paymentCode} updated to FAILED via query`);
+
+        return {
+          paymentCode: payment.payment_code,
+          status: 'failed',
+          amount: payment.amount,
+          createdAt: payment.date,
+          vnpTransactionNo: payment.vnp_transaction_no,
+        };
+      }
+      // returnCode 3 = still pending, return current status
     }
 
     return {

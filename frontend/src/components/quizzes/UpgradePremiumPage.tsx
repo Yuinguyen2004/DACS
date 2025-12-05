@@ -37,28 +37,25 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { User as UserType, Package } from "../../types/types";
-import { authAPI, packageAPI } from "../../services/api";
+import { userAPI, packageAPI } from "../../services/api";
 
 export default function UpgradePremiumPage() {
-  const [user, setUser] = useState<UserType | null>(null);
+  const [_user, setUser] = useState<UserType | null>(null);
   const [packages, setPackages] = useState<Package[]>([]);
   const [currentPackage, setCurrentPackage] = useState<Package | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  // GSAP refs
+
+  // GSAP refs (reserved for future animations)
   const containerRef = useRef<HTMLElement>(null);
-  const heroRef = useRef<HTMLDivElement>(null);
-  const benefitsRef = useRef<HTMLDivElement>(null);
-  const plansRef = useRef<HTMLDivElement>(null);
-  const tableRef = useRef<HTMLDivElement>(null);
-  const ctaRef = useRef<HTMLDivElement>(null);
+  void containerRef; // Mark as intentionally unused
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Get current user
-        const currentUser = authAPI.getCurrentUser();
+        // Fetch fresh user data from backend to get updated premium status
+        const currentUser = await userAPI.getProfile();
+        localStorage.setItem('user', JSON.stringify(currentUser));
         setUser(currentUser);
 
         // Get all packages
@@ -66,14 +63,18 @@ export default function UpgradePremiumPage() {
         setPackages(allPackages);
 
         // If user has a package, find their current package
-        if (
-          currentUser?.package_id &&
-          typeof currentUser.package_id === "string"
-        ) {
-          const userPackage = allPackages.find(
-            (pkg) => pkg._id === currentUser.package_id
-          );
-          setCurrentPackage(userPackage || null);
+        // Handle both string ID and populated object from backend
+        if (currentUser?.package_id) {
+          const packageId = typeof currentUser.package_id === "string"
+            ? currentUser.package_id
+            : (currentUser.package_id as any)?._id;
+
+          if (packageId) {
+            const userPackage = allPackages.find(
+              (pkg) => pkg._id === packageId
+            );
+            setCurrentPackage(userPackage || null);
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error);

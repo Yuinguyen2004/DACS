@@ -22,6 +22,7 @@ import AdminEditUserPage from "./components/teachers/admin/AdminEditUser"
 import QuizTypeSelectorPage from "./components/teachers/QuizTypeSelectorPage"
 import ImportQuizPage from "./components/teachers/ImportQuizPage"
 import QuizLeaderboardPage from "./components/quizzes/QuizLeaderboardPage"
+import AllQuizzesPage from "./components/quizzes/AllQuizzesPage"
 import { Routes, Route, useLocation } from "react-router-dom"
 import { authAPI } from "./services/api"
 import type { User } from "./types/types"
@@ -98,6 +99,7 @@ function App() {
           <Route path="/edit/:quizId" element={<EditQuizPage />} />
           <Route path="/adminedituser/:userId" element={<AdminEditUserPage />} />
           <Route path="/leaderboard/:quizId" element={<QuizLeaderboardPage />} />
+          <Route path="/quizzes" element={<AllQuizzesPage />} />
         </Routes>
       </main>
       {!isAuthPage && <AppFooter />}

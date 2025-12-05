@@ -117,10 +117,51 @@ export class ZaloPayService {
       .createHmac('sha256', this.key2)
       .update(data)
       .digest('hex');
-    
+
     const isValid = mac === expectedMac;
     this.logger.log(`[ZaloPay] Callback verification: ${isValid}`);
-    
+
     return isValid;
+  }
+
+  /**
+   * Query order status from ZaloPay
+   * Use this to actively check payment status when callback can't reach localhost
+   */
+  async queryOrderStatus(appTransId: string): Promise<{ returnCode: number; isSuccess: boolean }> {
+    try {
+      const queryEndpoint = 'https://sb-openapi.zalopay.vn/v2/query';
+
+      // Create MAC for query
+      const data = `${this.appId}|${appTransId}|${this.key1}`;
+      const mac = crypto
+        .createHmac('sha256', this.key1)
+        .update(data)
+        .digest('hex');
+
+      const params = new URLSearchParams();
+      params.append('app_id', this.appId);
+      params.append('app_trans_id', appTransId);
+      params.append('mac', mac);
+
+      this.logger.log(`[ZaloPay] Querying order status: ${appTransId}`);
+
+      const response = await axios.post(queryEndpoint, params.toString(), {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      });
+
+      this.logger.log(`[ZaloPay] Query response:`, JSON.stringify(response.data));
+
+      // return_code: 1 = success, 2 = failed, 3 = pending
+      return {
+        returnCode: response.data.return_code,
+        isSuccess: response.data.return_code === 1,
+      };
+    } catch (error) {
+      this.logger.error('[ZaloPay] Query order error:', error.message);
+      return { returnCode: -1, isSuccess: false };
+    }
   }
 }

@@ -77,6 +77,7 @@ export interface User extends BaseDocument {
   subscriptionType?: SubscriptionType;
   subscriptionStartDate?: Date;
   subscriptionEndDate?: Date;
+  subscriptionCanceledAt?: Date;
 }
 
 export interface CreateUserDto {
@@ -204,6 +205,16 @@ export interface SubmitTestAttemptDto {
   answers: TestAttemptAnswer[];
 }
 
+export interface SubmitTestResponse {
+  attempt_id: string;
+  score: number;
+  total_questions: number;
+  correct_answers: number;
+  incorrect_answers: number;
+  completion_time: number;
+  percentage: number;
+}
+
 export interface ResumeAttemptDto {
   resume_token: string;
 }
@@ -247,7 +258,8 @@ export interface Leaderboard extends BaseDocument {
 }
 
 export interface LeaderboardEntry {
-  user: Pick<User, '_id' | 'name' | 'username' | 'avatar'>;
+  userId: string;
+  username: string;
   score: number;
   timeSpent?: number;
   rank: number;

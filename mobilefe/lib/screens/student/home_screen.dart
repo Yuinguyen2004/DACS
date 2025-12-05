@@ -4,13 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobilefe/config/app_theme.dart';
 import 'package:mobilefe/config/app_router.dart';
-import 'package:mobilefe/data/api_service.dart';
+import 'package:mobilefe/l10n/app_localizations.dart';
 import 'package:mobilefe/models/quiz_model.dart';
 import 'package:mobilefe/models/user_model.dart';
 import 'package:mobilefe/providers/app_providers.dart';
 import 'package:mobilefe/screens/create_quiz/create_quiz_entry.dart';
 import 'package:mobilefe/widgets/quiz_card.dart';
-import 'package:mobilefe/widgets/recent_activity_tile.dart';
 import 'package:mobilefe/widgets/section_header.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -21,25 +20,25 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  late Future<List<Map<String, dynamic>>> _recentActivityFuture;
-
   @override
   void initState() {
     super.initState();
-    _loadRecentActivity();
-  }
-
-  void _loadRecentActivity() {
-    _recentActivityFuture = ref.read(apiServiceProvider).getTestHistory();
+    // Invalidate quiz history to ensure fresh data when home screen is shown
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(quizHistoryProvider);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final l10n = AppLocalizations.of(context);
     final UserModel user = ref.watch(currentUserProvider);
     ref.watch(userBootstrapProvider); // Trigger user fetch
     final QuizAccessFilter accessFilter = ref.watch(quizAccessFilterProvider);
-    final AsyncValue<List<QuizModel>> quizListAsync = ref.watch(quizListProvider);
+    final AsyncValue<List<QuizModel>> quizListAsync = ref.watch(
+      quizListProvider,
+    );
 
     return Scaffold(
       body: SafeArea(
@@ -50,7 +49,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             children: <Widget>[
               _HeaderCard(textTheme: textTheme, user: user),
               const SizedBox(height: 24),
-              Text('Filter quizzes', style: textTheme.titleMedium),
+              Text(l10n.filterQuizzes, style: textTheme.titleMedium),
               const SizedBox(height: 8),
               _FilterChips(
                 selectedFilter: accessFilter,
@@ -60,16 +59,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(height: 24),
               SectionHeader(
-                title: 'Recommended Quizzes',
-                actionLabel: 'See all',
+                title: l10n.recommendedQuizzes,
+                actionLabel: l10n.seeAll,
                 onActionTap: () => context.push(AppRoute.allQuizzes),
               ),
               const SizedBox(height: 16),
               SizedBox(
-                height: 300,
+                height: 340,
                 child: quizListAsync.when(
                   data: (quizzes) {
-                    final visibleQuizzes = _filterQuizzes(quizzes, accessFilter);
+                    final visibleQuizzes = _filterQuizzes(
+                      quizzes,
+                      accessFilter,
+                    );
                     return visibleQuizzes.isEmpty
                         ? _EmptyQuizState(filter: accessFilter)
                         : ListView.builder(
@@ -81,31 +83,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             },
                           );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (err, stack) => Center(child: Text('Error loading quizzes')),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (err, stack) =>
+                      Center(child: Text(l10n.errorLoadingQuizzes)),
                 ),
               ),
               const SizedBox(height: 32),
               SectionHeader(
-                title: 'Recent Activity',
-                actionLabel: 'View all',
+                title: l10n.recentActivity,
+                actionLabel: l10n.viewAll,
                 onActionTap: () => context.push(AppRoute.allActivity),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<Map<String, dynamic>>>(
-                future: _recentActivityFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Text('Error loading activities: ${snapshot.error}'),
-                    );
-                  }
-
-                  final history = snapshot.data ?? [];
+              ref.watch(quizHistoryProvider).when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, stack) => Center(
+                  child: Text('Error loading activities: $error'),
+                ),
+                data: (history) {
                   final recentHistory = history.take(3).toList();
 
                   if (recentHistory.isEmpty) {
@@ -113,7 +109,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'No recent activity',
+                          l10n.noRecentActivity,
                           style: textTheme.bodyMedium?.copyWith(
                             color: Colors.grey,
                           ),
@@ -159,16 +155,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: <Widget>[
                                     Text(
-                                      quiz != null ? quiz['title'] : 'Unknown Quiz',
+                                      quiz != null
+                                          ? quiz['title']
+                                          : l10n.unknownQuiz,
                                       style: textTheme.titleMedium,
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       score != null
-                                          ? 'Score: $score% · ${status == 'in_progress' ? 'In Progress' : 'Completed'}'
+                                          ? '${l10n.score}: $score% · ${status == 'in_progress' ? l10n.inProgress : l10n.completed}'
                                           : status == 'in_progress'
-                                              ? 'In Progress'
-                                              : 'Completed',
+                                          ? l10n.inProgress
+                                          : l10n.completed,
                                       style: textTheme.bodySmall,
                                     ),
                                   ],
@@ -189,12 +187,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: status == 'in_progress'
-                                          ? Colors.orange.withValues(alpha: 0.15)
-                                          : Colors.green.withValues(alpha: 0.15),
+                                          ? Colors.orange.withValues(
+                                              alpha: 0.15,
+                                            )
+                                          : Colors.green.withValues(
+                                              alpha: 0.15,
+                                            ),
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
-                                      status == 'in_progress' ? 'In Progress' : 'Completed',
+                                      status == 'in_progress'
+                                          ? l10n.inProgress
+                                          : l10n.completed,
                                       style: textTheme.bodySmall?.copyWith(
                                         color: status == 'in_progress'
                                             ? Colors.orange
@@ -219,7 +223,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => startCreateQuizFlow(context, ref),
         icon: const Icon(LucideIcons.plus),
-        label: const Text('Create New Quiz'),
+        label: Text(l10n.createNewQuiz),
       ),
     );
   }
@@ -253,26 +257,17 @@ class _HeaderCardState extends State<_HeaderCard>
     _slideAnimation = Tween<double>(
       begin: -50,
       end: 0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _scaleAnimation = Tween<double>(
       begin: 0.8,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.elasticOut,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeIn,
-    ));
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _controller.forward();
   }
@@ -361,232 +356,249 @@ class _HeaderCardState extends State<_HeaderCard>
                     ),
                     // Main content
                     Padding(
-                      padding: const EdgeInsets.only(top: 16), // Add padding for the icon
+                      padding: const EdgeInsets.only(
+                        top: 16,
+                      ), // Add padding for the icon
                       child: Row(
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      'Hello, ${widget.user.name}! 🎯',
-                                      style: widget.textTheme.headlineMedium?.copyWith(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w800,
-                                        height: 1.2,
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        '${AppLocalizations.of(context).helloUser}, ${widget.user.name}! 🎯',
+                                        style: widget.textTheme.headlineMedium
+                                            ?.copyWith(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w800,
+                                              height: 1.2,
+                                            ),
                                       ),
                                     ),
-                                  ),
-                                  if (widget.user.isPremium) ...[
-                                    const SizedBox(width: 8),
+                                    if (widget.user.isPremium) ...[
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              AppTheme.warningWarm,
+                                              const Color(0xFFFBBF24),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppTheme.warningWarm
+                                                  .withOpacity(0.4),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(
+                                              LucideIcons.crown,
+                                              size: 14,
+                                              color: Colors.white,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'PREMIUM',
+                                              style: widget.textTheme.labelSmall
+                                                  ?.copyWith(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 10,
+                                                    letterSpacing: 0.5,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
                                     Container(
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
+                                        horizontal: 12,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.15),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            LucideIcons.badgeCheck,
+                                            size: 16,
+                                            color: Colors.white70,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            widget.user.level,
+                                            style: widget.textTheme.bodyMedium
+                                                ?.copyWith(
+                                                  color: Colors.white70,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        Colors.white.withOpacity(0.25),
+                                        Colors.white.withOpacity(0.15),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.2),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        LucideIcons.trophy,
+                                        size: 20,
+                                        color: Colors.white.withOpacity(0.9),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            '${widget.user.points} pts',
+                                            style: widget.textTheme.titleMedium
+                                                ?.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 18,
+                                                ),
+                                          ),
+                                          Text(
+                                            AppLocalizations.of(
+                                              context,
+                                            ).totalScore,
+                                            style: widget.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  color: Colors.white70,
+                                                ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (!widget.user.isPremium) ...[
+                                  const SizedBox(height: 12),
+                                  InkWell(
+                                    onTap: () => context.push(AppRoute.premium),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
                                         vertical: 6,
                                       ),
                                       decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [
-                                            AppTheme.warningWarm,
-                                            const Color(0xFFFBBF24),
-                                          ],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: AppTheme.warningWarm.withOpacity(0.4),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
+                                        color: const Color(0xFFFBBF24),
+                                        borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           const Icon(
                                             LucideIcons.crown,
-                                            size: 14,
-                                            color: Colors.white,
+                                            size: 16,
+                                            color: Colors.black,
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
-                                            'PREMIUM',
-                                            style: widget.textTheme.labelSmall?.copyWith(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 10,
-                                              letterSpacing: 0.5,
-                                            ),
+                                            AppLocalizations.of(
+                                              context,
+                                            ).upgradeToPremium,
+                                            style: widget.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  color: Colors.black,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                           ),
                                         ],
                                       ),
                                     ),
-                                  ],
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          LucideIcons.badgeCheck,
-                                          size: 16,
-                                          color: Colors.white70,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          widget.user.level,
-                                          style: widget.textTheme.bodyMedium?.copyWith(
-                                            color: Colors.white70,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
                                   ),
                                 ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          // Profile image with ring
+                          Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                                width: 3,
                               ),
-                              const SizedBox(height: 16),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [
-                                      Colors.white.withOpacity(0.25),
-                                      Colors.white.withOpacity(0.15),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Colors.white.withOpacity(0.2),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      LucideIcons.trophy,
-                                      size: 20,
-                                      color: Colors.white.withOpacity(0.9),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          '${widget.user.points} pts',
-                                          style: widget.textTheme.titleMedium?.copyWith(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 18,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Total Score',
-                                          style: widget.textTheme.bodySmall?.copyWith(
-                                            color: Colors.white70,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              if (!widget.user.isPremium) ...[
-                                const SizedBox(height: 12),
-                                InkWell(
-                                  onTap: () => context.push(AppRoute.premium),
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFFBBF24),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          LucideIcons.crown,
-                                          size: 16,
-                                          color: Colors.black,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Upgrade to Premium',
-                                          style: widget.textTheme.bodySmall?.copyWith(
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
                                 ),
                               ],
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        // Profile image with ring
-                        Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
-                              width: 3,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.2),
-                                blurRadius: 16,
-                                offset: const Offset(0, 8),
+                            child: CircleAvatar(
+                              radius: 40,
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              foregroundImage: NetworkImage(
+                                widget.user.avatarUrl,
                               ),
-                            ],
-                          ),
-                          child: CircleAvatar(
-                            radius: 40,
-                            backgroundColor: Colors.white.withOpacity(0.2),
-                            foregroundImage: NetworkImage(widget.user.avatarUrl),
-                            onForegroundImageError: (exception, stackTrace) {
-                              // Silently handle image load errors
-                            },
-                            child: Icon(
-                              LucideIcons.user,
-                              size: 40,
-                              color: Colors.white.withOpacity(0.7),
+                              onForegroundImageError: (exception, stackTrace) {
+                                // Silently handle image load errors
+                              },
+                              child: Icon(
+                                LucideIcons.user,
+                                size: 40,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
                   ],
                 ),
               ),
@@ -599,27 +611,25 @@ class _HeaderCardState extends State<_HeaderCard>
 }
 
 class _FilterChips extends StatelessWidget {
-  const _FilterChips({
-    required this.selectedFilter,
-    required this.onChanged,
-  });
+  const _FilterChips({required this.selectedFilter, required this.onChanged});
 
   final QuizAccessFilter selectedFilter;
   final ValueChanged<QuizAccessFilter> onChanged;
 
-  String _labelFor(QuizAccessFilter filter) {
+  String _labelFor(QuizAccessFilter filter, AppLocalizations l10n) {
     switch (filter) {
       case QuizAccessFilter.all:
-        return 'All';
+        return l10n.all;
       case QuizAccessFilter.free:
-        return 'Free';
+        return l10n.free;
       case QuizAccessFilter.premium:
-        return 'Premium';
+        return l10n.premium;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -628,7 +638,7 @@ class _FilterChips extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text(_labelFor(filter)),
+              label: Text(_labelFor(filter, l10n)),
               selected: selected,
               onSelected: (_) => onChanged(filter),
             ),
@@ -644,19 +654,20 @@ class _EmptyQuizState extends StatelessWidget {
 
   final QuizAccessFilter filter;
 
-  String get _message {
+  String _message(AppLocalizations l10n) {
     switch (filter) {
       case QuizAccessFilter.all:
-        return 'No quizzes available right now.';
+        return l10n.noQuizzesAvailableRightNow;
       case QuizAccessFilter.free:
-        return 'All free quizzes are currently unavailable.';
+        return l10n.allFreeQuizzesUnavailable;
       case QuizAccessFilter.premium:
-        return 'No premium quizzes available yet.';
+        return l10n.noPremiumQuizzesYet;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Container(
         padding: const EdgeInsets.all(24),
@@ -665,7 +676,7 @@ class _EmptyQuizState extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
         ),
         child: Text(
-          _message,
+          _message(l10n),
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ),

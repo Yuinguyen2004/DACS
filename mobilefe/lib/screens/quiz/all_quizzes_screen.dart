@@ -108,7 +108,7 @@ class _AllQuizzesScreenState extends ConsumerState<AllQuizzesScreen> {
                   padding: const EdgeInsets.all(16),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
-                    childAspectRatio: 0.85, // Adjusted for better proportions
+                    childAspectRatio: 0.55, // Gives more height for card content
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
                   ),

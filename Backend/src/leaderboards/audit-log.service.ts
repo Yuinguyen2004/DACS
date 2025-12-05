@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 export interface AuditLogEntry {
   timestamp: Date;
@@ -19,6 +19,7 @@ export interface AuditLogEntry {
  */
 @Injectable()
 export class AuditLogService {
+  private readonly logger = new Logger(AuditLogService.name);
   /**
    * Ghi log thao tác admin
    */
@@ -28,30 +29,8 @@ export class AuditLogService {
       timestamp: entry.timestamp || new Date(),
     };
 
-    // Log to console (trong production có thể log vào file hoặc database)
-    console.log('=== ADMIN AUDIT LOG ===');
-    console.log(`Timestamp: ${logEntry.timestamp.toISOString()}`);
-    console.log(`Admin: ${logEntry.adminEmail} (${logEntry.adminId})`);
-    console.log(`Action: ${logEntry.action} ${logEntry.resource}`);
-    console.log(`Resource ID: ${logEntry.resourceId}`);
-
-    if (logEntry.changes) {
-      console.log('Changes:', JSON.stringify(logEntry.changes, null, 2));
-    }
-
-    if (logEntry.reason) {
-      console.log(`Reason: ${logEntry.reason}`);
-    }
-
-    if (logEntry.ipAddress) {
-      console.log(`IP Address: ${logEntry.ipAddress}`);
-    }
-
-    if (logEntry.userAgent) {
-      console.log(`User Agent: ${logEntry.userAgent}`);
-    }
-
-    console.log('========================');
+    // Log admin action
+    this.logger.log(`Admin action: ${logEntry.action} ${logEntry.resource} by ${logEntry.adminEmail}`);
 
     // Trong production, có thể lưu vào database hoặc external logging service
     // await this.saveToDatabase(logEntry);

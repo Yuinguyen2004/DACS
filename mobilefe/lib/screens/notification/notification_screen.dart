@@ -74,18 +74,74 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
       final apiService = ref.read(apiServiceProvider);
       await apiService.markAllNotificationsAsRead();
       setState(() {
-        _notifications = _notifications.map((n) => NotificationModel(
-          id: n.id,
-          title: n.title,
-          content: n.content,
-          isRead: true,
-          type: n.type,
-          data: n.data,
-          createdAt: n.createdAt,
-        )).toList();
+        _notifications = _notifications
+            .map(
+              (n) => NotificationModel(
+                id: n.id,
+                title: n.title,
+                content: n.content,
+                isRead: true,
+                type: n.type,
+                data: n.data,
+                createdAt: n.createdAt,
+              ),
+            )
+            .toList();
       });
     } catch (e) {
       // Handle error
+    }
+  }
+
+  Future<void> _clearAllNotifications() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Notifications'),
+        content: const Text(
+          'Are you sure you want to delete all notifications? This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Clear All'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final result = await apiService.clearAllNotifications();
+
+      if (mounted) {
+        setState(() {
+          _notifications = [];
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Notifications cleared'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error clearing notifications: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -105,50 +161,53 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
               tooltip: 'Mark all as read',
               onPressed: _markAllAsRead,
             ),
+          if (_notifications.isNotEmpty)
+            IconButton(
+              icon: const Icon(LucideIcons.trash2),
+              tooltip: 'Clear all notifications',
+              onPressed: _clearAllNotifications,
+            ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _notifications.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(LucideIcons.bellOff, size: 64, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No notifications',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Colors.grey[500],
-                            ),
-                      ),
-                    ],
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(LucideIcons.bellOff, size: 64, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No notifications',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: Colors.grey[500]),
                   ),
-                )
-              : ListView.builder(
-                  itemCount: _notifications.length,
-                  itemBuilder: (context, index) {
-                    final notification = _notifications[index];
-                    return _NotificationItem(
-                      notification: notification,
-                      onTap: () {
-                        if (!notification.isRead) {
-                          _markAsRead(notification.id);
-                        }
-                        // Handle navigation based on type if needed
-                      },
-                    );
+                ],
+              ),
+            )
+          : ListView.builder(
+              itemCount: _notifications.length,
+              itemBuilder: (context, index) {
+                final notification = _notifications[index];
+                return _NotificationItem(
+                  notification: notification,
+                  onTap: () {
+                    if (!notification.isRead) {
+                      _markAsRead(notification.id);
+                    }
+                    // Handle navigation based on type if needed
                   },
-                ),
+                );
+              },
+            ),
     );
   }
 }
 
 class _NotificationItem extends StatelessWidget {
-  const _NotificationItem({
-    required this.notification,
-    required this.onTap,
-  });
+  const _NotificationItem({required this.notification, required this.onTap});
 
   final NotificationModel notification;
   final VoidCallback onTap;
@@ -180,7 +239,9 @@ class _NotificationItem extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: isRead ? Colors.transparent : AppTheme.primaryVibrant.withOpacity(0.05),
+        color: isRead
+            ? Colors.transparent
+            : AppTheme.primaryVibrant.withOpacity(0.05),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -204,7 +265,9 @@ class _NotificationItem extends StatelessWidget {
                         child: Text(
                           notification.title,
                           style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: isRead ? FontWeight.w600 : FontWeight.w700,
+                            fontWeight: isRead
+                                ? FontWeight.w600
+                                : FontWeight.w700,
                             color: AppTheme.textPrimary,
                           ),
                         ),

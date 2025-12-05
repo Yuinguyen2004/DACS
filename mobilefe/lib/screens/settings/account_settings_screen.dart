@@ -1,16 +1,115 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobilefe/config/app_theme.dart';
 import 'package:mobilefe/config/app_router.dart';
+import 'package:mobilefe/l10n/locale_provider.dart';
 import 'package:mobilefe/providers/app_providers.dart';
 
-class AccountSettingsScreen extends ConsumerWidget {
+class AccountSettingsScreen extends ConsumerStatefulWidget {
   const AccountSettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AccountSettingsScreen> createState() =>
+      _AccountSettingsScreenState();
+}
+
+class _AccountSettingsScreenState extends ConsumerState<AccountSettingsScreen> {
+  bool _isCanceling = false;
+
+  String _formatSubscriptionType(String? type) {
+    switch (type?.toLowerCase()) {
+      case 'monthly':
+        return 'Monthly';
+      case 'yearly':
+        return 'Yearly';
+      case 'lifetime':
+        return 'Lifetime';
+      default:
+        return 'Premium';
+    }
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'N/A';
+    return DateFormat('MMM dd, yyyy').format(date);
+  }
+
+  Future<void> _cancelSubscription() async {
+    final user = ref.read(currentUserProvider);
+    final expiryDate = _formatDate(user.subscriptionEndDate);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(LucideIcons.alertCircle, color: Colors.orange),
+            SizedBox(width: 12),
+            Text('Are you sure?'),
+          ],
+        ),
+        content: Text(
+          'You will keep premium access until $expiryDate. After that, your account will be downgraded to Free.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep Subscription'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() => _isCanceling = true);
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      await apiService.cancelSubscription();
+
+      // Refresh user data
+      await ref.read(currentUserProvider.notifier).fetchUser();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Subscription canceled. You have access until $expiryDate.',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to cancel subscription: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isCanceling = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
     final textTheme = Theme.of(context).textTheme;
 
@@ -114,6 +213,28 @@ class AccountSettingsScreen extends ConsumerWidget {
                 );
               },
             ),
+            const SizedBox(height: 12),
+            _SettingCard(
+              icon: LucideIcons.globe,
+              title: 'Language',
+              subtitle: ref.watch(localeProvider.notifier).getLanguageName(),
+              onTap: () => context.push(AppRoute.languageSettings),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    ref.watch(localeProvider.notifier).getFlagEmoji(),
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    LucideIcons.chevronRight,
+                    color: AppTheme.textMuted,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
 
             const SizedBox(height: 32),
 
@@ -141,54 +262,90 @@ class AccountSettingsScreen extends ConsumerWidget {
                     color: AppTheme.warningWarm.withOpacity(0.3),
                   ),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFFF59E0B),
-                            Color(0xFFFBBF24),
-                          ],
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(
+                            LucideIcons.crown,
+                            color: Colors.white,
+                            size: 24,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        LucideIcons.crown,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Premium Member',
-                            style: textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_formatSubscriptionType(user.subscriptionType)} Member',
+                                style: textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              if (user.isCanceled)
+                                Text(
+                                  'Canceled - Expires ${_formatDate(user.subscriptionEndDate)}',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                )
+                              else if (user.subscriptionType?.toLowerCase() ==
+                                  'lifetime')
+                                Text(
+                                  'Lifetime access',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.accentBright,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  'Active until ${_formatDate(user.subscriptionEndDate)}',
+                                  style: textTheme.bodySmall?.copyWith(
+                                    color: AppTheme.textMuted,
+                                  ),
+                                ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Active subscription',
-                            style: textTheme.bodySmall?.copyWith(
-                              color: AppTheme.textMuted,
-                            ),
+                        ),
+                      ],
+                    ),
+                    // Show cancel button only if not canceled and not lifetime
+                    if (!user.isCanceled &&
+                        user.subscriptionType?.toLowerCase() != 'lifetime') ...[
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          onPressed: _isCanceling ? null : _cancelSubscription,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
                           ),
-                        ],
+                          child: _isCanceling
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Text('Cancel'),
+                        ),
                       ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Manage Subscription - Coming soon')),
-                        );
-                      },
-                      child: const Text('Manage'),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -223,11 +380,11 @@ class AccountSettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Row(
+        title: const Row(
           children: [
             Icon(LucideIcons.alertTriangle, color: Colors.red),
-            const SizedBox(width: 12),
-            const Text('Delete Account'),
+            SizedBox(width: 12),
+            Text('Delete Account'),
           ],
         ),
         content: const Text(
@@ -308,22 +465,19 @@ class _SettingCard extends StatelessWidget {
         title: Text(
           title,
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: isDestructive ? Colors.red : AppTheme.textPrimary,
-              ),
+            fontWeight: FontWeight.w600,
+            color: isDestructive ? Colors.red : AppTheme.textPrimary,
+          ),
         ),
         subtitle: Text(
           subtitle,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppTheme.textMuted,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: AppTheme.textMuted),
         ),
-        trailing: trailing ??
-            Icon(
-              LucideIcons.chevronRight,
-              color: AppTheme.textMuted,
-              size: 20,
-            ),
+        trailing:
+            trailing ??
+            Icon(LucideIcons.chevronRight, color: AppTheme.textMuted, size: 20),
       ),
     );
   }

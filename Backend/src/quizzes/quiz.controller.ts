@@ -79,6 +79,11 @@ export class QuizController {
       throw new NotFoundException(`Quiz with ID ${id} not found`);
     }
 
+    // Block access to hidden quizzes for non-admin users
+    if (quiz.is_hidden && req.user.role !== 'admin') {
+      throw new NotFoundException(`Quiz with ID ${id} not found`);
+    }
+
     // Kiem tra premium quiz access
     if (quiz.is_premium) {
       const user = await this.quizService.getUserWithPackage(req.user.userId);

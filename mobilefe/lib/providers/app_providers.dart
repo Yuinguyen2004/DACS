@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobilefe/data/api_service.dart';
 import 'package:mobilefe/data/mock_data.dart';
 import 'package:mobilefe/models/quiz_model.dart';
+import 'package:mobilefe/models/quiz_leaderboard.dart';
+import 'package:mobilefe/models/user_quiz_rank.dart';
 import 'package:mobilefe/models/user_model.dart';
 
 enum QuizAccessFilter { all, free, premium }
@@ -35,18 +37,19 @@ final currentUserProvider = NotifierProvider<CurrentUserNotifier, UserModel>(
 );
 final quizAccessFilterProvider =
     NotifierProvider<QuizAccessFilterNotifier, QuizAccessFilter>(
-  QuizAccessFilterNotifier.new,
-);
+      QuizAccessFilterNotifier.new,
+    );
 
 final quizListProvider = FutureProvider<List<QuizModel>>((ref) async {
   final apiService = ref.watch(apiServiceProvider);
   return await apiService.getQuizzes();
 });
 
-final quizHistoryProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
-  final apiService = ref.watch(apiServiceProvider);
-  return await apiService.getTestHistory();
-});
+final quizHistoryProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+      final apiService = ref.watch(apiServiceProvider);
+      return await apiService.getTestHistory();
+    });
 
 final userBootstrapProvider = FutureProvider<void>((ref) async {
   try {
@@ -57,6 +60,20 @@ final userBootstrapProvider = FutureProvider<void>((ref) async {
     print('Error bootstrapping user: $e');
   }
 });
+
+// Quiz-specific leaderboard provider
+final quizLeaderboardProvider =
+    FutureProvider.autoDispose.family<QuizLeaderboard, String>((ref, quizId) async {
+      final apiService = ref.watch(apiServiceProvider);
+      return await apiService.getQuizLeaderboard(quizId);
+    });
+
+// Current user's rank in a specific quiz
+final myQuizRankProvider =
+    FutureProvider.autoDispose.family<UserQuizRank?, String>((ref, quizId) async {
+      final apiService = ref.watch(apiServiceProvider);
+      return await apiService.getMyQuizRank(quizId);
+    });
 
 class OnboardingIndexNotifier extends Notifier<int> {
   @override
@@ -83,14 +100,15 @@ class CurrentUserNotifier extends Notifier<UserModel> {
   @override
   UserModel build() => userFree;
 
-  Future<void> fetchUser() async {
+  Future<bool> fetchUser() async {
     try {
       final apiService = ref.read(apiServiceProvider);
       final user = await apiService.getProfile();
       state = user;
+      return true;
     } catch (e) {
-      // Handle error or keep current state
       print('Error fetching user: $e');
+      return false;
     }
   }
 

@@ -13,7 +13,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { packageAPI, paymentAPI } from "../../services/api";
 import { Package } from "../../types/types";
 
@@ -25,7 +25,6 @@ export default function PaymentMethodSelectionPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const navigate = useNavigate();
   const { packageId } = useParams<{ packageId?: string }>();
 
   useEffect(() => {

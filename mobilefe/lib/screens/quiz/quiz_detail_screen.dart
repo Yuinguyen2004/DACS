@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobilefe/config/app_router.dart';
 import 'package:mobilefe/data/mock_data.dart';
+import 'package:mobilefe/data/api_service.dart';
 import 'package:mobilefe/models/quiz_model.dart';
 import 'package:mobilefe/screens/quiz/quiz_flow_models.dart';
 import 'package:mobilefe/widgets/primary_button.dart';
@@ -75,13 +76,25 @@ class _QuizDetailScreenState extends ConsumerState<QuizDetailScreen> {
       final questions = questionsJson.map((q) {
         final List<dynamic> answersJson = q['answers'];
         
+        // Build full image URL if it's a relative path
+        // Keep as-is if it's already a full URL (http/https) or a data URL (base64)
+        String? imageUrl;
+        if (q['image'] != null && q['image'].toString().isNotEmpty) {
+          final img = q['image'].toString();
+          if (img.startsWith('http') || img.startsWith('data:')) {
+            imageUrl = img;
+          } else {
+            imageUrl = '${ApiService.baseUrl}$img';
+          }
+        }
+
         return QuizQuestion(
           id: q['_id'],
           prompt: q['content'],
           options: answersJson.map((a) => a['content'] as String).toList(),
           answerIds: answersJson.map((a) => a['_id'] as String).toList(),
           correctIndex: -1, // Not provided during test to prevent cheating
-          imageUrl: q['image'],
+          imageUrl: imageUrl,
         );
       }).toList();
 
@@ -157,8 +170,9 @@ class _QuizDetailScreenState extends ConsumerState<QuizDetailScreen> {
             const SizedBox(height: 8),
             Text('by ${widget.quiz.author}', style: textTheme.bodyMedium),
             const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: <Widget>[
                 _InfoPill(
                   icon: LucideIcons.helpCircle,
@@ -214,7 +228,24 @@ class _QuizDetailScreenState extends ConsumerState<QuizDetailScreen> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  context.push(
+                    AppRoute.quizLeaderboard,
+                    extra: QuizLeaderboardPayload(
+                      quizId: widget.quiz.id,
+                      quizTitle: widget.quiz.title,
+                    ),
+                  );
+                },
+                icon: const Icon(LucideIcons.trophy),
+                label: const Text('View Leaderboard'),
+              ),
+            ),
+            const SizedBox(height: 12),
             if (_isLoading)
               const Center(child: CircularProgressIndicator())
             else

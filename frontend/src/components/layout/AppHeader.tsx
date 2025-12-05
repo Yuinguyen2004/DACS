@@ -1,6 +1,6 @@
 "use client"
 import { Link, useNavigate } from "react-router-dom"
-import { BookOpen, Menu, LogOut, User, Settings, HelpCircle, Shield, Bell } from "lucide-react"
+import { BookOpen, Menu, LogOut, User, Shield, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {

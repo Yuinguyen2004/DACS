@@ -25,6 +25,7 @@ class QuizResultPayload {
     required this.correctCount,
     required this.score,
     required this.attemptId,
+    this.isTimeOut = false,
   });
 
   final QuizModel quiz;
@@ -33,4 +34,15 @@ class QuizResultPayload {
   final int correctCount;
   final int score;
   final String attemptId;
+  final bool isTimeOut;
+}
+
+class QuizLeaderboardPayload {
+  const QuizLeaderboardPayload({
+    required this.quizId,
+    required this.quizTitle,
+  });
+
+  final String quizId;
+  final String quizTitle;
 }

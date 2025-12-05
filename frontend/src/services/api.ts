@@ -2,7 +2,6 @@ import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '../firebase/firebase.config';
 import {
-  ApiResponse,
   LoginDto,
   LoginResponse,
   RegisterDto,
@@ -15,19 +14,16 @@ import {
   TestAttempt,
   CreateTestAttemptDto,
   SubmitTestAttemptDto,
-  ResumeAttemptDto,
   AutosaveDto,
   CreateQuizDto,
   UpdateQuizDto,
   CreateQuestionDto,
   CreateAnswerDto,
   Package,
-  Payment,
-  CreatePaymentDto,
   Notification,
   LeaderboardEntry,
   UserStats,
-  QuizStats
+  SubmitTestResponse,
 } from '../types/types';
 
 // API Configuration
@@ -112,11 +108,11 @@ api.interceptors.response.use(
       console.log('[API] Unauthorized error on:', error.config?.url);
       console.log('[API] Error response data:', error.response?.data);
 
-      // Only clear tokens for authentication endpoints or token validation failures
-      const isAuthEndpoint = error.config?.url?.includes('/auth/');
-      const isTokenInvalid = error.response?.data?.message?.includes('Invalid Firebase token') ||
-        error.response?.data?.message?.includes('token') ||
-        error.response?.data?.message?.includes('Unauthorized');
+      // Only clear tokens for token validation failures
+      const responseData = error.response?.data as { message?: string } | undefined;
+      const isTokenInvalid = responseData?.message?.includes('Invalid Firebase token') ||
+        responseData?.message?.includes('token') ||
+        responseData?.message?.includes('Unauthorized');
 
       if (isTokenInvalid) {
         console.log('[API] Token appears invalid - clearing stored tokens');
@@ -299,7 +295,7 @@ export const quizAPI = {
     return response.data;
   },
 
-  async processDocxWithGemini(file: File): Promise<{
+  async processDocxWithGemini(file: File, aiRequirements?: string): Promise<{
     questions: Array<{
       text: string;
       options: string[];
@@ -310,6 +306,9 @@ export const quizAPI = {
 
     const formData = new FormData();
     formData.append('file', file);
+    if (aiRequirements) {
+      formData.append('aiRequirements', aiRequirements);
+    }
 
     const response = await api.post<{
       questions: Array<{
@@ -413,7 +412,7 @@ export const testAttemptAPI = {
     return response.data;
   },
 
-  async submitTestAttempt(id: string, data: SubmitTestAttemptDto): Promise<TestAttempt> {
+  async submitTestAttempt(id: string, data: SubmitTestAttemptDto): Promise<SubmitTestResponse> {
     console.log('[TEST] Submitting test attempt:', id);
     // Transform frontend data to match backend SubmitTestDto format
     const submitData = {
@@ -423,7 +422,7 @@ export const testAttemptAPI = {
         selected_answer_id: answer.selected_answer_id
       }))
     };
-    const response = await api.post<TestAttempt>('/test-attempts/submit', submitData);
+    const response = await api.post<SubmitTestResponse>('/test-attempts/submit', submitData);
     console.log('[TEST] Test attempt submitted');
     return response.data;
   },
@@ -486,6 +485,12 @@ export const userAPI = {
   async getUserStats(): Promise<UserStats> {
     console.log('[USER] Fetching user stats');
     const response = await api.get<UserStats>('/users/stats');
+    return response.data;
+  },
+
+  async cancelSubscription(): Promise<{ success: boolean; message: string }> {
+    console.log('[USER] Canceling subscription');
+    const response = await api.delete('/users/cancel-subscription');
     return response.data;
   }
 };
@@ -677,11 +682,38 @@ export const notificationAPI = {
 
 // ==== LEADERBOARD API ====
 
+export interface QuizLeaderboardResponse {
+  quizId: string;
+  quizTitle: string;
+  entries: LeaderboardEntry[];
+  totalParticipants: number;
+}
+
+export interface UserRankResponse {
+  rank: number;
+  totalParticipants: number;
+  score: number;
+}
+
 export const leaderboardAPI = {
-  async getQuizLeaderboard(quizId: string): Promise<LeaderboardEntry[]> {
+  async getQuizLeaderboard(quizId: string, limit?: number): Promise<QuizLeaderboardResponse> {
     console.log('[LEADERBOARD] Fetching leaderboard for quiz:', quizId);
-    const response = await api.get<ApiResponse<LeaderboardEntry[]>>(`/leaderboards/quiz/${quizId}`);
-    return response.data.data!;
+    const params = limit ? `?limit=${limit}` : '';
+    const response = await api.get<QuizLeaderboardResponse>(`/leaderboards/quiz/${quizId}${params}`);
+    return response.data;
+  },
+
+  async getMyRankInQuiz(quizId: string): Promise<UserRankResponse | null> {
+    console.log('[LEADERBOARD] Fetching my rank for quiz:', quizId);
+    try {
+      const response = await api.get<UserRankResponse>(`/leaderboards/quiz/${quizId}/my-rank`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   }
 };
 

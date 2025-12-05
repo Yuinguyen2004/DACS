@@ -1,8 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:mobilefe/config/app_router.dart';
+import 'package:mobilefe/l10n/app_localizations.dart';
 import 'package:mobilefe/providers/app_providers.dart';
 import 'package:mobilefe/widgets/primary_button.dart';
 import 'package:mobilefe/widgets/text_input_field.dart';
@@ -39,10 +41,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _handleRegister(BuildContext context) async {
+    final l10n = AppLocalizations.of(context);
     if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l10n.passwordsDoNotMatch)));
       return;
     }
 
@@ -54,17 +57,46 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         _nameController.text,
       );
 
+      // Fetch user profile after successful registration with retry
+      bool fetchSuccess = await ref.read(currentUserProvider.notifier).fetchUser();
+
+      // Retry once if fetch failed (token might need a moment to propagate)
+      if (!fetchSuccess) {
+        await Future.delayed(const Duration(milliseconds: 500));
+        fetchSuccess = await ref.read(currentUserProvider.notifier).fetchUser();
+      }
+
+      // Invalidate bootstrap provider so it will re-fetch on home screen if needed
+      ref.invalidate(userBootstrapProvider);
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Account created! Please login.')),
-        );
-        context.go(AppRoute.login);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(l10n.registerSuccessful)));
+        // Go directly to dashboard since user is already authenticated
+        context.go(AppRoute.dashboard);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed: ${e.toString()}')),
-        );
+        String errorMessage = l10n.registerFailed;
+
+        if (e is DioException) {
+          final responseData = e.response?.data;
+          if (responseData is Map<String, dynamic> &&
+              responseData['message'] != null) {
+            errorMessage = responseData['message'];
+          } else if (e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout ||
+              e.type == DioExceptionType.sendTimeout) {
+            errorMessage = l10n.connectionTimeout;
+          } else if (e.type == DioExceptionType.connectionError) {
+            errorMessage = l10n.connectionError;
+          }
+        }
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage)));
       }
     }
   }
@@ -76,13 +108,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       registerConfirmPasswordVisibilityProvider,
     );
 
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(LucideIcons.arrowLeft),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Create account'),
+        title: Text(l10n.createAccount),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -90,16 +123,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              TextInputField(label: 'Full name', controller: _nameController),
+              TextInputField(label: l10n.name, controller: _nameController),
               const SizedBox(height: 20),
               TextInputField(
-                label: 'Email',
+                label: l10n.email,
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 20),
               TextInputField(
-                label: 'Password',
+                label: l10n.password,
                 controller: _passwordController,
                 obscureText: obscurePassword,
                 suffix: IconButton(
@@ -115,7 +148,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 20),
               TextInputField(
-                label: 'Confirm password',
+                label: l10n.confirmPassword,
                 controller: _confirmPasswordController,
                 obscureText: obscureConfirm,
                 suffix: IconButton(
@@ -133,7 +166,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 28),
               PrimaryButton(
-                label: 'Create account',
+                label: l10n.createAccount,
                 onPressed: () => _handleRegister(context),
               ),
               const SizedBox(height: 12),
@@ -141,7 +174,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 alignment: Alignment.center,
                 child: TextButton(
                   onPressed: () => context.go(AppRoute.login),
-                  child: const Text('Already have an account? Login'),
+                  child: Text(l10n.alreadyHaveAccount),
                 ),
               ),
             ],

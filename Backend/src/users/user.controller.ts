@@ -130,6 +130,10 @@ export class UsersController {
     return {
       ...result,
       isPremium,
+      subscriptionType: result.subscriptionType || null,
+      subscriptionStartDate: result.subscriptionStartDate || null,
+      subscriptionEndDate: result.subscriptionEndDate || null,
+      subscriptionCanceledAt: result.subscriptionCanceledAt || null,
     };
   }
 
@@ -223,15 +227,16 @@ export class UsersController {
     }
 
     const isAdmin = user.role === 'admin';
-    const hasPremiumPackage =
-      user.package_id &&
-      (typeof user.package_id === 'object' || user.package_id !== 'guest');
+    // User has premium if package_id exists and is not null
+    const hasPremiumPackage = !!user.package_id;
 
     const isActive = user.status === 'active';
     const subscriptionEndDate = user.subscriptionEndDate;
     const isSubscriptionValid = subscriptionEndDate
       ? new Date() < new Date(subscriptionEndDate)
       : false;
+
+    const isCanceled = !!user.subscriptionCanceledAt;
 
     return {
       isAdmin,
@@ -240,6 +245,8 @@ export class UsersController {
       subscriptionType: user.subscriptionType,
       subscriptionStartDate: user.subscriptionStartDate,
       subscriptionEndDate: user.subscriptionEndDate,
+      subscriptionCanceledAt: user.subscriptionCanceledAt || null,
+      isCanceled,
       isSubscriptionValid,
       canAccessPremium:
         isAdmin || (hasPremiumPackage && isActive && isSubscriptionValid),

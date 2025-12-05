@@ -92,11 +92,6 @@ export default function AdminDashboardPage() {
   const [quizCurrentPage, setQuizCurrentPage] = useState(1);
   const [quizTotalPages, setQuizTotalPages] = useState(1);
 
-  const categories = ["all", "user", "admin"];
-  const statusOptions = ["all", "active", "inactive"];
-  const premiumOptions = ["all", "true", "false"];
-  const hiddenOptions = ["all", "true", "false"];
-
   // Check admin access
   useEffect(() => {
     if (!currentUser || !userUtils.isAdmin(currentUser)) {
@@ -259,7 +254,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleToggleQuizHidden = async (quizId: string, title: string) => {
+  const handleToggleQuizHidden = async (quizId: string, _title: string) => {
     try {
       await adminAPI.toggleQuizHidden(quizId);
       await Promise.all([loadQuizzes(), loadQuizStats()]);

@@ -1,27 +1,30 @@
 import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:mobilefe/models/user_model.dart';
 import 'package:mobilefe/models/quiz_model.dart';
 import 'package:mobilefe/models/activity_model.dart';
 import 'package:mobilefe/models/notification_model.dart';
+import 'package:mobilefe/models/quiz_leaderboard.dart';
+import 'package:mobilefe/models/user_quiz_rank.dart';
 import 'package:file_picker/file_picker.dart';
 
 class ApiService {
+  // Use your computer's local IP for physical devices
   // Use 10.0.2.2 for Android emulator, localhost for Web/iOS
   static String get baseUrl {
     if (kIsWeb) {
       return 'http://localhost:3000';
     }
-    // Simple check for Android (requires dart:io, but kIsWeb must be checked first to avoid errors on web)
-    // For simplicity in this hybrid setup without importing dart:io conditionally:
-    // We can assume if not web, it might be android emulator.
-    // Ideally we use Platform.isAndroid but that throws on web.
-    return 'http://10.0.2.2:3000';
+    // For physical Android devices, use your computer's local IP address
+    // Make sure your phone and computer are on the same WiFi network
+    return 'http://192.168.101.71:3000';
   }
 
   final Dio _dio;
   final FlutterSecureStorage _storage;
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
   ApiService()
     : _dio = Dio(
@@ -45,30 +48,61 @@ class ApiService {
     );
   }
 
-  // Exchange custom token for ID token using Firebase REST API
+  // Exchange custom token for ID token using Firebase Auth SDK
   Future<String> _exchangeCustomTokenForIdToken(String customToken) async {
-    const apiKey = 'AIzaSyDi_OrDkGCmSN3yIw0HyLHN3h-njSJdcA4';
-    final response = await _dio.post(
-      'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=$apiKey',
-      data: {'token': customToken, 'returnSecureToken': true},
-      options: Options(contentType: Headers.jsonContentType),
-    );
-    return response.data['idToken'];
+    try {
+      // Use Firebase Auth SDK to sign in with custom token
+      final userCredential = await _firebaseAuth.signInWithCustomToken(
+        customToken,
+      );
+      debugPrint('🔐 [LOGIN] Firebase Auth sign in successful');
+
+      // Get the ID token from the signed-in user
+      final idToken = await userCredential.user?.getIdToken();
+      if (idToken == null) {
+        throw Exception('Failed to get ID token after Firebase sign in');
+      }
+      return idToken;
+    } catch (e) {
+      debugPrint('❌ [LOGIN] Firebase Auth error: $e');
+      rethrow;
+    }
   }
 
   // Auth
   Future<void> login(String email, String password) async {
     try {
+      debugPrint('🔐 [LOGIN] Attempting login to: $baseUrl/auth/login');
+      debugPrint('🔐 [LOGIN] Email: $email');
+
       final response = await _dio.post(
         '/auth/login',
         data: {'email': email, 'password': password},
       );
 
+      debugPrint('🔐 [LOGIN] Response received: ${response.statusCode}');
+      debugPrint('🔐 [LOGIN] Response data: ${response.data}');
+
       final customToken = response.data['firebaseToken'];
+      debugPrint(
+        '🔐 [LOGIN] Custom token received, exchanging for ID token...',
+      );
+
       final idToken = await _exchangeCustomTokenForIdToken(customToken);
+      debugPrint('🔐 [LOGIN] ID token obtained successfully');
 
       await _storage.write(key: 'auth_token', value: idToken);
+      debugPrint('🔐 [LOGIN] Token saved to storage');
     } catch (e) {
+      debugPrint('❌ [LOGIN] Error: $e');
+      if (e is DioException) {
+        debugPrint('❌ [LOGIN] DioException type: ${e.type}');
+        debugPrint('❌ [LOGIN] DioException message: ${e.message}');
+        debugPrint('❌ [LOGIN] DioException response: ${e.response?.data}');
+        debugPrint(
+          '❌ [LOGIN] DioException statusCode: ${e.response?.statusCode}',
+        );
+      }
       rethrow;
     }
   }
@@ -89,6 +123,44 @@ class ApiService {
     }
   }
 
+  /// Login with Google Sign-In
+  /// Takes Firebase ID token from Google Sign-In and authenticates with backend
+  Future<void> loginWithGoogle({
+    required String idToken,
+    required String email,
+    String? name,
+    String? photoURL,
+  }) async {
+    try {
+      debugPrint('🔐 [GOOGLE LOGIN] Sending Google auth to backend...');
+      debugPrint('🔐 [GOOGLE LOGIN] Email: $email');
+
+      final response = await _dio.post(
+        '/auth/google',
+        data: {
+          'idToken': idToken,
+          'email': email,
+          'name': name,
+          'photoURL': photoURL,
+        },
+      );
+
+      debugPrint('🔐 [GOOGLE LOGIN] Response: ${response.statusCode}');
+      debugPrint('🔐 [GOOGLE LOGIN] Data: ${response.data}');
+
+      // Backend returns the same idToken for Google auth
+      // Store it for subsequent API calls
+      await _storage.write(key: 'auth_token', value: idToken);
+      debugPrint('🔐 [GOOGLE LOGIN] Token saved to storage');
+    } catch (e) {
+      debugPrint('❌ [GOOGLE LOGIN] Error: $e');
+      if (e is DioException) {
+        debugPrint('❌ [GOOGLE LOGIN] DioException: ${e.response?.data}');
+      }
+      rethrow;
+    }
+  }
+
   Future<void> logout() async {
     await _storage.delete(key: 'auth_token');
   }
@@ -96,7 +168,10 @@ class ApiService {
   // User
   Future<UserModel> getProfile() async {
     try {
+      debugPrint('👤 [PROFILE] Fetching user profile...');
       final response = await _dio.get('/users/profile');
+      debugPrint('👤 [PROFILE] Response received: ${response.statusCode}');
+      debugPrint('👤 [PROFILE] Response data: ${response.data}');
       final json = response.data;
 
       return UserModel(
@@ -108,9 +183,28 @@ class ApiService {
         points: json['total_score'] ?? 0,
         quizzesTaken: json['quizzes_taken'] ?? 0,
         averageScore: (json['average_score'] ?? 0).toDouble(),
-        isPremium: json['isPremium'] ?? false, // Backend returns isPremium flag
+        isPremium: json['isPremium'] ?? false,
+        subscriptionType: json['subscriptionType'],
+        subscriptionStartDate: json['subscriptionStartDate'] != null
+            ? DateTime.parse(json['subscriptionStartDate'])
+            : null,
+        subscriptionEndDate: json['subscriptionEndDate'] != null
+            ? DateTime.parse(json['subscriptionEndDate'])
+            : null,
+        subscriptionCanceledAt: json['subscriptionCanceledAt'] != null
+            ? DateTime.parse(json['subscriptionCanceledAt'])
+            : null,
       );
     } catch (e) {
+      debugPrint('❌ [PROFILE] Error: $e');
+      if (e is DioException) {
+        debugPrint('❌ [PROFILE] DioException type: ${e.type}');
+        debugPrint('❌ [PROFILE] DioException message: ${e.message}');
+        debugPrint('❌ [PROFILE] DioException response: ${e.response?.data}');
+        debugPrint(
+          '❌ [PROFILE] DioException statusCode: ${e.response?.statusCode}',
+        );
+      }
       rethrow;
     }
   }
@@ -130,6 +224,16 @@ class ApiService {
         quizzesTaken: json['quizzes_taken'] ?? 0,
         averageScore: (json['average_score'] ?? 0).toDouble(),
         isPremium: json['isPremium'] ?? false,
+        subscriptionType: json['subscriptionType'],
+        subscriptionStartDate: json['subscriptionStartDate'] != null
+            ? DateTime.parse(json['subscriptionStartDate'])
+            : null,
+        subscriptionEndDate: json['subscriptionEndDate'] != null
+            ? DateTime.parse(json['subscriptionEndDate'])
+            : null,
+        subscriptionCanceledAt: json['subscriptionCanceledAt'] != null
+            ? DateTime.parse(json['subscriptionCanceledAt'])
+            : null,
       );
     } catch (e) {
       rethrow;
@@ -145,6 +249,14 @@ class ApiService {
         '/users/change-password',
         data: {'currentPassword': currentPassword, 'newPassword': newPassword},
       );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> cancelSubscription() async {
+    try {
+      await _dio.delete('/users/cancel-subscription');
     } catch (e) {
       rethrow;
     }
@@ -188,6 +300,16 @@ class ApiService {
   Future<void> markAllNotificationsAsRead() async {
     try {
       await _dio.patch('/notifications/mark-all-read');
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Clear all notifications for the current user
+  Future<Map<String, dynamic>> clearAllNotifications() async {
+    try {
+      final response = await _dio.delete('/notifications/clear-all');
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       rethrow;
     }
@@ -279,6 +401,16 @@ class ApiService {
     try {
       final response = await _dio.get('/test-attempts/history');
       return List<Map<String, dynamic>>.from(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Clear test history (completed attempts only)
+  Future<Map<String, dynamic>> clearTestHistory() async {
+    try {
+      final response = await _dio.delete('/test-attempts/history');
+      return Map<String, dynamic>.from(response.data);
     } catch (e) {
       rethrow;
     }
@@ -487,6 +619,39 @@ class ApiService {
         return QuizDifficulty.advanced;
       default:
         return QuizDifficulty.intermediate;
+    }
+  }
+
+  // Leaderboard
+  Future<QuizLeaderboard> getQuizLeaderboard(String quizId, {int limit = 50}) async {
+    try {
+      debugPrint('📊 [LEADERBOARD] Fetching leaderboard for quiz: $quizId');
+      final response = await _dio.get(
+        '/leaderboards/quiz/$quizId',
+        queryParameters: {'limit': limit},
+      );
+      debugPrint('📊 [LEADERBOARD] Response: ${response.data}');
+      return QuizLeaderboard.fromJson(response.data);
+    } catch (e) {
+      debugPrint('❌ [LEADERBOARD] Error: $e');
+      if (e is DioException) {
+        debugPrint('❌ [LEADERBOARD] Status: ${e.response?.statusCode}');
+        debugPrint('❌ [LEADERBOARD] Data: ${e.response?.data}');
+      }
+      rethrow;
+    }
+  }
+
+  Future<UserQuizRank?> getMyQuizRank(String quizId) async {
+    try {
+      final response = await _dio.get('/leaderboards/quiz/$quizId/my-rank');
+      if (response.data == null) return null;
+      return UserQuizRank.fromJson(response.data);
+    } catch (e) {
+      if (e is DioException && e.response?.statusCode == 404) {
+        return null; // User has not completed this quiz
+      }
+      rethrow;
     }
   }
 }

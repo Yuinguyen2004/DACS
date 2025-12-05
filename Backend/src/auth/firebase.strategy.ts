@@ -55,10 +55,6 @@ export class FirebaseStrategy extends PassportStrategy(CustomStrategy, 'firebase
       
       if (!user) {
         // Auto-create user if not exists (optional - you might want to require manual registration)
-        console.log(
-          'Creating new user from Firebase token:',
-          decodedToken.email,
-        );
         user = await this.usersService.createFromFirebase({
           email: decodedToken.email,
           firebaseUid: decodedToken.uid,
