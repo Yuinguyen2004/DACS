@@ -28,6 +28,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    // Check if user account is blocked (status: 'inactive')
+    if (user.status === 'inactive') {
+      throw new UnauthorizedException(
+        'Tài khoản của bạn đã bị khóa. Vui lòng liên hệ quản trị viên.',
+      );
+    }
+
     // Check if user has a password (not a Firebase-only user)
     if (!user.password_hash) {
       throw new UnauthorizedException(

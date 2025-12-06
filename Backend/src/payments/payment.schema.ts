@@ -21,6 +21,8 @@ export enum PaymentStatus {
 export enum PaymentMethod {
   VNPAY = 'vnpay',
   PAYPAL = 'paypal',
+  GOOGLE_PAY = 'google_pay',
+  ZALOPAY = 'zalopay',
 }
 
 @Schema({ timestamps: true })

@@ -199,7 +199,14 @@ export default function QuizAuthPage() {
       
       // Handle different error types
       if (error.response?.status === 401) {
-        setError("Email hoặc mật khẩu không đúng")
+        // Check if it's a blocked account error
+        const errorMessage = error.response.data?.message || '';
+        if (errorMessage.includes('blocked') || errorMessage.includes('khóa')) {
+          // Show the exact error message from backend (already in Vietnamese)
+          setError(errorMessage)
+        } else {
+          setError("Email hoặc mật khẩu không đúng")
+        }
       } else if (error.response?.status === 400) {
         setError(error.response.data?.message || "Dữ liệu không hợp lệ")
       } else if (error.response?.status === 409) {

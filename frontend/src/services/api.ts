@@ -1,9 +1,10 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
-import { 
-  ApiResponse, 
-  LoginDto, 
-  LoginResponse, 
-  RegisterDto, 
+import { signInWithCustomToken } from 'firebase/auth';
+import { auth } from '../firebase/firebase.config';
+import {
+  LoginDto,
+  LoginResponse,
+  RegisterDto,
   User,
   Quiz,
   QuizWithDetails,
@@ -13,18 +14,16 @@ import {
   TestAttempt,
   CreateTestAttemptDto,
   SubmitTestAttemptDto,
+  AutosaveDto,
   CreateQuizDto,
   UpdateQuizDto,
   CreateQuestionDto,
   CreateAnswerDto,
   Package,
-  Payment,
-  CreatePaymentDto,
   Notification,
   LeaderboardEntry,
   UserStats,
-  QuizStats,
-  ChangePasswordDto
+  SubmitTestResponse,
 } from '../types/types';
 
 // API Configuration
@@ -49,13 +48,13 @@ api.interceptors.request.use(
       params: config.params,
       timestamp: new Date().toISOString()
     });
-    
+
     // Add auth token if exists
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
       console.log('[API] Added auth token to request:', token.substring(0, 50) + '...');
-      
+
       // Check if token is expired
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
@@ -75,7 +74,7 @@ api.interceptors.request.use(
     } else {
       console.warn('[API] No auth token found in localStorage');
     }
-    
+
     return config;
   },
   (error) => {
@@ -103,18 +102,18 @@ api.interceptors.response.use(
       data: error.response?.data,
       timestamp: new Date().toISOString()
     });
-    
+
     // Handle auth errors
     if (error.response?.status === 401) {
       console.log('[API] Unauthorized error on:', error.config?.url);
       console.log('[API] Error response data:', error.response?.data);
-      
-      // Only clear tokens for authentication endpoints or token validation failures
-      const isAuthEndpoint = error.config?.url?.includes('/auth/');
-      const isTokenInvalid = error.response?.data?.message?.includes('Invalid Firebase token') || 
-                            error.response?.data?.message?.includes('token') ||
-                            error.response?.data?.message?.includes('Unauthorized');
-      
+
+      // Only clear tokens for token validation failures
+      const responseData = error.response?.data as { message?: string } | undefined;
+      const isTokenInvalid = responseData?.message?.includes('Invalid Firebase token') ||
+        responseData?.message?.includes('token') ||
+        responseData?.message?.includes('Unauthorized');
+
       if (isTokenInvalid) {
         console.log('[API] Token appears invalid - clearing stored tokens');
         localStorage.removeItem('authToken');
@@ -124,7 +123,7 @@ api.interceptors.response.use(
         console.log('[API] 401 error but token might still be valid - not clearing tokens');
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -135,35 +134,68 @@ export const authAPI = {
   async login(data: LoginDto): Promise<LoginResponse> {
     console.log('[AUTH] Attempting login for:', data.email);
     const response = await api.post('/auth/login', data);
-    
+
     console.log('[AUTH] Login response structure:', response.data);
-    
+
     if (response.data && response.data.user && response.data.firebaseToken) {
-      // Store Firebase token as auth token
-      localStorage.setItem('authToken', response.data.firebaseToken);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-      console.log('[AUTH] Login successful, token stored');
-      
-      return {
-        access_token: response.data.firebaseToken,
-        user: response.data.user
-      };
+      // Backend returns custom token, we need to exchange it for ID token
+      console.log('[AUTH] Exchanging custom token for ID token...');
+
+      try {
+        // Sign in with custom token to get ID token
+        const userCredential = await signInWithCustomToken(auth, response.data.firebaseToken);
+        const idToken = await userCredential.user.getIdToken();
+
+        console.log('[AUTH] ID token obtained successfully');
+        console.log('[AUTH] ID token preview:', idToken.substring(0, 50) + '...');
+
+        // Store ID token (not custom token)
+        localStorage.setItem('authToken', idToken);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        console.log('[AUTH] Login successful, ID token stored');
+
+        return {
+          access_token: idToken,
+          user: response.data.user
+        };
+      } catch (error) {
+        console.error('[AUTH] Failed to exchange custom token for ID token:', error);
+        throw new Error('Failed to complete authentication. Please try again.');
+      }
     }
-    
+
     throw new Error('Invalid login response format');
   },
 
   async register(data: RegisterDto): Promise<User> {
     console.log('[AUTH] Attempting registration for:', data.email);
     const response = await api.post('/auth/register', data);
-    
+
     console.log('[AUTH] Registration response structure:', response.data);
-    
-    if (response.data && response.data.user) {
-      console.log('[AUTH] Registration successful for user:', response.data.user.name || response.data.user.email);
-      return response.data.user;
+
+    if (response.data && response.data.user && response.data.firebaseToken) {
+      // Backend returns custom token, exchange it for ID token
+      console.log('[AUTH] Exchanging custom token for ID token after registration...');
+
+      try {
+        // Sign in with custom token to get ID token
+        const userCredential = await signInWithCustomToken(auth, response.data.firebaseToken);
+        const idToken = await userCredential.user.getIdToken();
+
+        console.log('[AUTH] ID token obtained successfully after registration');
+
+        // Store ID token and user info
+        localStorage.setItem('authToken', idToken);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        console.log('[AUTH] Registration successful, ID token stored');
+
+        return response.data.user;
+      } catch (error) {
+        console.error('[AUTH] Failed to exchange custom token for ID token:', error);
+        throw new Error('Registration successful but authentication failed. Please login.');
+      }
     }
-    
+
     throw new Error('Invalid registration response format');
   },
 
@@ -194,11 +226,11 @@ export const authAPI = {
   isAuthenticated(): boolean {
     const token = this.getToken();
     const user = this.getCurrentUser();
-    
+
     if (!token || !user) {
       return false;
     }
-    
+
     // Check if token is expired
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -263,51 +295,19 @@ export const quizAPI = {
     return response.data;
   },
 
-  async processFileWithGemini(file: File, desiredQuestionCount?: number): Promise<{
+  async processDocxWithGemini(file: File, aiRequirements?: string): Promise<{
     questions: Array<{
       text: string;
       options: string[];
       correctAnswerIndex: number;
     }>;
-    title?: string;
-    description?: string;
-    totalQuestions?: number;
-    requestedCount?: number;
-    actualCount?: number;
   }> {
-    console.log('[QUIZ] Processing file with Gemini:', {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-      desiredQuestionCount,
-    });
-
-    // Validate file type on frontend
-    const allowedTypes = [
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'application/pdf',
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
-      throw new Error('Chỉ hỗ trợ file .docx hoặc .pdf');
-    }
-
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      throw new Error('File quá lớn. Kích thước tối đa là 5MB.');
-    }
-
-    // Validate desired question count
-    if (desiredQuestionCount !== undefined && desiredQuestionCount !== null) {
-      if (desiredQuestionCount < 5 || desiredQuestionCount > 100) {
-        throw new Error('Số lượng câu hỏi phải nằm trong khoảng 5-100.');
-      }
-    }
+    console.log('[QUIZ] Processing .docx file with Gemini:', file.name);
 
     const formData = new FormData();
     formData.append('file', file);
-    if (desiredQuestionCount) {
-      formData.append('desiredQuestionCount', desiredQuestionCount.toString());
+    if (aiRequirements) {
+      formData.append('aiRequirements', aiRequirements);
     }
 
     const response = await api.post<{
@@ -316,42 +316,34 @@ export const quizAPI = {
         options: string[];
         correctAnswerIndex: number;
       }>;
-      title?: string;
-      description?: string;
-      totalQuestions?: number;
-      requestedCount?: number;
-      actualCount?: number;
-    }>('/quizzes/process-file', formData, {
+    }>('/quizzes/process-docx', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 120000, // 120 seconds for large PDF processing
+      timeout: 60000, // 60 seconds for Gemini processing
     });
 
-    console.log('[QUIZ] Gemini processing completed:', {
-      questionCount: response.data.questions.length,
-      requestedCount: response.data.requestedCount,
-      actualCount: response.data.actualCount,
-      title: response.data.title,
-    });
-
+    console.log('[QUIZ] Gemini processing completed, found', response.data.questions.length, 'questions');
     return response.data;
   },
 
-  // Keep legacy method name for backward compatibility
-  async processDocxWithGemini(file: File, desiredQuestionCount?: number): Promise<{
-    questions: Array<{
-      text: string;
-      options: string[];
-      correctAnswerIndex: number;
-    }>;
-    title?: string;
-    description?: string;
-    totalQuestions?: number;
-    requestedCount?: number;
-    actualCount?: number;
-  }> {
-    return this.processFileWithGemini(file, desiredQuestionCount);
+  async importQuizFromFile(file: File, desiredQuestionCount?: number): Promise<Quiz> {
+    console.log('[QUIZ] Importing quiz from file:', file.name);
+    const formData = new FormData();
+    formData.append('file', file);
+    if (desiredQuestionCount) {
+      formData.append('desiredQuestionCount', desiredQuestionCount.toString());
+    }
+
+    const response = await api.post<Quiz>('/quizzes/import', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000, // 60 seconds for AI processing
+    });
+
+    console.log('[QUIZ] Import successful:', response.data);
+    return response.data;
   }
 };
 
@@ -420,7 +412,7 @@ export const testAttemptAPI = {
     return response.data;
   },
 
-  async submitTestAttempt(id: string, data: SubmitTestAttemptDto): Promise<TestAttempt> {
+  async submitTestAttempt(id: string, data: SubmitTestAttemptDto): Promise<SubmitTestResponse> {
     console.log('[TEST] Submitting test attempt:', id);
     // Transform frontend data to match backend SubmitTestDto format
     const submitData = {
@@ -430,7 +422,7 @@ export const testAttemptAPI = {
         selected_answer_id: answer.selected_answer_id
       }))
     };
-    const response = await api.post<TestAttempt>('/test-attempts/submit', submitData);
+    const response = await api.post<SubmitTestResponse>('/test-attempts/submit', submitData);
     console.log('[TEST] Test attempt submitted');
     return response.data;
   },
@@ -447,35 +439,30 @@ export const testAttemptAPI = {
     return response.data;
   },
 
-  async abandonAttempt(id: string): Promise<{success: boolean; message: string}> {
+  async abandonAttempt(id: string): Promise<{ success: boolean; message: string }> {
     console.log('[TEST] Abandoning test attempt:', id);
-    const response = await api.post<{success: boolean; message: string}>(`/test-attempts/abandon/${id}`);
+    const response = await api.post<{ success: boolean; message: string }>(`/test-attempts/abandon/${id}`);
     return response.data;
   },
 
-  // New methods for resume quiz feature
-  async getActiveAttempt(quizId: string): Promise<any> {
-    console.log('[TEST] Fetching active attempt for quiz:', quizId);
-    const response = await api.get(`/test-attempts/active?quiz_id=${quizId}`);
+  async resumeAttempt(resume_token: string): Promise<TestAttempt> {
+    console.log('[TEST] Resuming test attempt with token:', resume_token.substring(0, 10) + '...');
+    const response = await api.post<TestAttempt>('/test-attempts/resume', { resume_token });
+    console.log('[TEST] Test attempt resumed successfully');
     return response.data;
   },
 
-  async heartbeat(attemptId: string): Promise<{remainingSeconds: number | null; status: string; last_seen_at: string}> {
-    console.log('[TEST] Sending heartbeat for attempt:', attemptId);
-    const response = await api.post(`/test-attempts/${attemptId}/heartbeat`);
+  async autosaveAnswers(data: AutosaveDto): Promise<{ success: boolean; message: string; server_seq: number }> {
+    console.log('[TEST] Autosaving answers for attempt:', data.attempt_id);
+    const response = await api.post<{ success: boolean; message: string; server_seq: number }>('/test-attempts/autosave', data);
     return response.data;
   },
 
-  async saveAnswers(attemptId: string, answers: Array<{question_id: string; selected_answer_id: string; client_seq: number}>): Promise<{success: boolean; saved_count: number; remainingSeconds: number | null}> {
-    console.log('[TEST] Saving answers for attempt:', attemptId, 'Count:', answers.length);
-    const response = await api.patch(`/test-attempts/${attemptId}/answers`, { answers });
-    return response.data;
-  },
-
-  async resume(resumeToken: string): Promise<any> {
-    console.log('[TEST] Resuming attempt with token');
-    const response = await api.post('/test-attempts/resume', { resume_token: resumeToken });
-    return response.data;
+  async getInProgressAttempts(): Promise<TestAttempt[]> {
+    console.log('[TEST] Fetching in-progress test attempts');
+    const response = await api.get<TestAttempt[]>('/test-attempts/history');
+    // Filter to only in-progress attempts
+    return response.data.filter((attempt: TestAttempt) => attempt.status === 'in_progress');
   }
 };
 
@@ -495,16 +482,15 @@ export const userAPI = {
     return response.data;
   },
 
-  async changePassword(userId: string, payload: ChangePasswordDto): Promise<{ message: string }> {
-    console.log('[USER] Changing password for user:', userId);
-    const response = await api.patch(`/users/${userId}/password`, payload);
-    console.log('[USER] Password changed successfully');
-    return response.data;
-  },
-
   async getUserStats(): Promise<UserStats> {
     console.log('[USER] Fetching user stats');
     const response = await api.get<UserStats>('/users/stats');
+    return response.data;
+  },
+
+  async cancelSubscription(): Promise<{ success: boolean; message: string }> {
+    console.log('[USER] Canceling subscription');
+    const response = await api.delete('/users/cancel-subscription');
     return response.data;
   }
 };
@@ -542,13 +528,13 @@ export const adminAPI = {
   }> {
     console.log('[ADMIN] Fetching all users with filters:', filters);
     const params = new URLSearchParams();
-    
+
     if (filters?.search) params.append('search', filters.search);
     if (filters?.role) params.append('role', filters.role);
     if (filters?.status) params.append('status', filters.status);
     if (filters?.page) params.append('page', filters.page.toString());
     if (filters?.limit) params.append('limit', filters.limit.toString());
-    
+
     const response = await api.get(`/users/admin/users?${params.toString()}`);
     return response.data;
   },
@@ -562,6 +548,61 @@ export const adminAPI = {
   async deleteUser(userId: string): Promise<{ message: string }> {
     console.log('[ADMIN] Deleting user:', userId);
     const response = await api.delete(`/users/admin/${userId}`);
+    return response.data;
+  },
+
+  // Quiz Management
+  async getQuizStats(): Promise<{
+    total: number;
+    hidden: number;
+    premium: number;
+    free: number;
+    totalQuestions: number;
+  }> {
+    console.log('[ADMIN] Fetching quiz stats');
+    const response = await api.get('/quizzes/admin/stats');
+    return response.data;
+  },
+
+  async getAllQuizzes(filters?: {
+    search?: string;
+    creator?: string;
+    premium?: string;
+    hidden?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    quizzes: any[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  }> {
+    console.log('[ADMIN] Fetching all quizzes with filters:', filters);
+    const params = new URLSearchParams();
+
+    if (filters?.search) params.append('search', filters.search);
+    if (filters?.creator) params.append('creator', filters.creator);
+    if (filters?.premium) params.append('premium', filters.premium);
+    if (filters?.hidden) params.append('hidden', filters.hidden);
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get(`/quizzes/admin/all?${params.toString()}`);
+    return response.data;
+  },
+
+  async toggleQuizHidden(quizId: string): Promise<{ message: string; is_hidden: boolean }> {
+    console.log('[ADMIN] Toggling quiz hidden status:', quizId);
+    const response = await api.patch(`/quizzes/admin/${quizId}/toggle-hidden`);
+    return response.data;
+  },
+
+  async deleteQuiz(quizId: string): Promise<{ message: string }> {
+    console.log('[ADMIN] Deleting quiz:', quizId);
+    const response = await api.delete(`/quizzes/admin/${quizId}`);
     return response.data;
   }
 };
@@ -621,27 +662,9 @@ export const paymentAPI = {
 export const notificationAPI = {
   async getMyNotifications(): Promise<Notification[]> {
     console.log('[NOTIFICATION] Fetching notifications');
-    const response = await api.get('/notifications/my-notifications');
-    const responseData = response.data;
-
-    // Backend currently returns either { data: [...] } or { notifications: [...] }
-    if (Array.isArray(responseData)) {
-      return responseData as Notification[];
-    }
-
-    if (responseData?.data && Array.isArray(responseData.data)) {
-      return responseData.data as Notification[];
-    }
-
-    if (
-      responseData?.notifications &&
-      Array.isArray(responseData.notifications)
-    ) {
-      return responseData.notifications as Notification[];
-    }
-
-    console.warn('[NOTIFICATION] Unexpected response format:', responseData);
-    return [];
+    const response = await api.get<{ notifications: Notification[]; total: number; totalPages: number }>('/notifications/my-notifications');
+    console.log('[NOTIFICATION] Response data:', response.data);
+    return response.data.notifications;
   },
 
   async markAsRead(notificationIds: string[]): Promise<void> {
@@ -659,11 +682,38 @@ export const notificationAPI = {
 
 // ==== LEADERBOARD API ====
 
+export interface QuizLeaderboardResponse {
+  quizId: string;
+  quizTitle: string;
+  entries: LeaderboardEntry[];
+  totalParticipants: number;
+}
+
+export interface UserRankResponse {
+  rank: number;
+  totalParticipants: number;
+  score: number;
+}
+
 export const leaderboardAPI = {
-  async getQuizLeaderboard(quizId: string): Promise<LeaderboardEntry[]> {
+  async getQuizLeaderboard(quizId: string, limit?: number): Promise<QuizLeaderboardResponse> {
     console.log('[LEADERBOARD] Fetching leaderboard for quiz:', quizId);
-    const response = await api.get<ApiResponse<LeaderboardEntry[]>>(`/leaderboards/quiz/${quizId}`);
-    return response.data.data!;
+    const params = limit ? `?limit=${limit}` : '';
+    const response = await api.get<QuizLeaderboardResponse>(`/leaderboards/quiz/${quizId}${params}`);
+    return response.data;
+  },
+
+  async getMyRankInQuiz(quizId: string): Promise<UserRankResponse | null> {
+    console.log('[LEADERBOARD] Fetching my rank for quiz:', quizId);
+    try {
+      const response = await api.get<UserRankResponse>(`/leaderboards/quiz/${quizId}/my-rank`);
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   }
 };
 
@@ -676,29 +726,20 @@ export const userUtils = {
    * @returns boolean - true if user has premium package
    */
   hasPremiumAccess(user: User | null): boolean {
-    if (!user) return false;
-    
-    // Admin luôn có quyền premium (không cần mua gói)
-    if (user.role === 'admin') return true;
-    
-    // Teacher cũng được coi là có quyền premium
-    if (user.role === 'teacher') return true;
-    
-    // Kiểm tra package_id
-    if (!user.package_id) return false;
-    
+    if (!user || !user.package_id) return false;
+
     // If package_id is 'guest', user doesn't have premium
     if (user.package_id === 'guest') return false;
-    
+
     // If package_id is a string (not 'guest'), we need to check the package details
     // For now, we'll assume non-guest packages are premium
     if (typeof user.package_id === 'string') return true;
-    
+
     // If package_id is a Package object, check if price > 0
     if (typeof user.package_id === 'object' && user.package_id.price) {
       return user.package_id.price > 0;
     }
-    
+
     return false;
   },
 
@@ -709,15 +750,15 @@ export const userUtils = {
    */
   getPackageName(user: User | null): string {
     if (!user || !user.package_id) return 'Guest';
-    
+
     if (user.package_id === 'guest') return 'Guest';
-    
+
     if (typeof user.package_id === 'string') return 'Premium';
-    
+
     if (typeof user.package_id === 'object' && user.package_id.name) {
       return user.package_id.name;
     }
-    
+
     return 'Unknown';
   },
 

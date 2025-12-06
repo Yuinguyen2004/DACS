@@ -194,6 +194,16 @@ export class NotificationController {
     return this.notificationService.markAllAsReadForUser(userId);
   }
 
-  // Users cannot create, update, or delete notifications (except mark as read)
-  // These endpoints are removed for regular users and only available to admin
+  /**
+   * Clear all notifications for the current user
+   */
+  @Delete('clear-all')
+  async clearAllNotifications(@Req() req: any): Promise<{ deletedCount: number; message: string }> {
+    const userId = req.user.userId;
+    const result = await this.notificationService.removeAllForUser(userId);
+    return {
+      ...result,
+      message: `Đã xóa ${result.deletedCount} thông báo`,
+    };
+  }
 }

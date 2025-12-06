@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   BadRequestException,
   ForbiddenException,
@@ -21,6 +22,8 @@ import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class TestAttemptService {
+  private readonly logger = new Logger(TestAttemptService.name);
+
   constructor(
     @InjectModel(TestAttempt.name) private testAttemptModel: Model<TestAttempt>,
     @InjectModel(Quiz.name) private quizModel: Model<Quiz>,
@@ -29,7 +32,7 @@ export class TestAttemptService {
     @InjectModel(User.name) private userModel: Model<User>,
     private leaderboardService: LeaderboardService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   /**
    * Bat dau lam bai test
@@ -56,17 +59,9 @@ export class TestAttemptService {
         throw new UnauthorizedException('User not found');
       }
 
-      console.log('Premium check:', {
-        userId: user._id.toString(),
-        role: user.role,
-        package_id: user.package_id,
-        package_id_type: typeof user.package_id,
-        is_populated: user.package_id && typeof user.package_id === 'object' && 'price' in user.package_id,
-      });
-
       // Chi admin hoac user co package co gia > 0 moi co the truy cap premium quiz
       const isAdmin = user.role === 'admin';
-      
+
       // Kiem tra package_id hop le (khong phai 'guest' string)
       const packageData = user.package_id;
       const hasPremiumPackage =
@@ -74,8 +69,6 @@ export class TestAttemptService {
         typeof packageData === 'object' &&
         'price' in packageData &&
         (packageData as any).price > 0;
-
-      console.log('Access check result:', { isAdmin, hasPremiumPackage });
 
       if (!isAdmin && !hasPremiumPackage) {
         throw new ForbiddenException(
@@ -85,13 +78,10 @@ export class TestAttemptService {
     }
 
     // 2. Lay tat ca cau hoi cua quiz
-    console.log('Looking for questions with quiz_id:', (quiz._id as Types.ObjectId).toString());
     const questions = await this.questionModel
       .find({ quiz_id: quiz._id })
       .sort({ question_number: 1 })
       .lean();
-
-    console.log('Found questions:', questions.length);
 
     if (questions.length === 0) {
       throw new BadRequestException('Quiz has no questions');
@@ -110,6 +100,7 @@ export class TestAttemptService {
           content: question.content,
           type: question.type,
           question_number: question.question_number,
+          image: question.image,
           answers: answers,
         };
       }),
@@ -130,13 +121,6 @@ export class TestAttemptService {
     });
 
     await testAttempt.save();
-
-    console.log('Created attempt:', {
-      _id: (testAttempt._id as Types.ObjectId).toString(),
-      user_id: testAttempt.user_id.toString(),
-      status: testAttempt.status,
-      resume_token: resumeToken,
-    });
 
     // Tinh remaining seconds
     const remainingSeconds = this.calcRemainingSeconds(testAttempt, quiz);
@@ -267,9 +251,9 @@ export class TestAttemptService {
         submitData.answers && submitData.answers.length > 0
           ? submitData.answers
           : attempt.draft_answers.map((d) => ({
-              question_id: d.question_id.toString(),
-              selected_answer_id: d.selected_answer_id.toString(),
-            }));
+            question_id: d.question_id.toString(),
+            selected_answer_id: d.selected_answer_id.toString(),
+          }));
 
       // Duyệt qua từng câu trả lời
       for (const answerSubmission of answersToProcess) {
@@ -371,15 +355,9 @@ export class TestAttemptService {
             timeSpent: completionTime,
           });
 
-          console.log(`Leaderboard ${result.action}:`, {
-            attemptId: (finalizedAttempt._id as Types.ObjectId).toString(),
-            score,
-            timeSpent: completionTime,
-            action: result.action,
-          });
         } catch (leaderboardError) {
           // Log error but don't fail the test submission
-          console.error('Failed to update leaderboard:', leaderboardError);
+          this.logger.error('Failed to update leaderboard:', leaderboardError);
         }
 
         // Send notification to user about quiz completion
@@ -398,10 +376,9 @@ export class TestAttemptService {
               completionTime: completionTime,
             },
           });
-          console.log('Quiz completion notification sent to user');
         } catch (notificationError) {
           // Log error but don't fail the test submission
-          console.error('Failed to send quiz completion notification:', notificationError);
+          this.logger.error('Failed to send quiz completion notification:', notificationError);
         }
       }
 
@@ -437,7 +414,7 @@ export class TestAttemptService {
 
     const attempts = await this.testAttemptModel
       .find(filter)
-      .populate('quiz_id', 'title description time_limit')
+      .populate('quiz_id', '_id title description time_limit')
       .sort({ started_at: -1 })
       .lean();
 
@@ -456,6 +433,26 @@ export class TestAttemptService {
   }
 
   /**
+   * Xoa lich su lam bai cua user
+   * Chi xoa cac attempt da hoan thanh (completed, late, abandoned)
+   * Khong xoa attempt dang in_progress de tranh mat du lieu
+   */
+  async clearTestHistory(userId: string) {
+    const result = await this.testAttemptModel.deleteMany({
+      user_id: new Types.ObjectId(userId),
+      status: { $in: ['completed', 'late', 'abandoned'] },
+    });
+
+    this.logger.log(`Cleared ${result.deletedCount} history items for user ${userId}`);
+
+    return {
+      success: true,
+      deletedCount: result.deletedCount,
+      message: `Đã xóa ${result.deletedCount} bài làm trong lịch sử`,
+    };
+  }
+
+  /**
    * Xem chi tiet ket qua 1 lan lam bai cu the
    * Bao gom tat ca cau tra loi, dap an dung, dap an da chon
    * Dung de review lai bai lam sau khi hoan thanh
@@ -468,8 +465,8 @@ export class TestAttemptService {
 
     const attempt = await this.testAttemptModel
       .findOne({ _id: new Types.ObjectId(attemptId), user_id: new Types.ObjectId(userId) })
-      .populate('quiz_id', 'title description')
-      .populate('answers.question_id', 'content type question_number')
+      .populate('quiz_id', '_id title description time_limit')
+      .populate('answers.question_id', 'content type question_number explanation image')
       .populate('answers.selected_answer_id', 'content is_correct')
       .lean();
 
@@ -495,9 +492,26 @@ export class TestAttemptService {
       {} as Record<string, any>,
     );
 
+    // Fetch all answers for detailed review
+    const allAnswers = await this.answerModel
+      .find({ question_id: { $in: questionIds } })
+      .select('_id content is_correct question_id')
+      .lean();
+
+    // Group answers by question_id
+    const allAnswersMap = allAnswers.reduce(
+      (map, answer) => {
+        const qId = answer.question_id.toString();
+        if (!map[qId]) map[qId] = [];
+        map[qId].push(answer);
+        return map;
+      },
+      {} as Record<string, any[]>,
+    );
+
     return {
       _id: attempt._id,
-      quiz: attempt.quiz_id,
+      quiz_id: attempt.quiz_id,
       score: attempt.score,
       total_questions: attempt.total_questions,
       correct_answers: attempt.correct_answers,
@@ -510,6 +524,7 @@ export class TestAttemptService {
         question: answer.question_id,
         selected_answer: answer.selected_answer_id,
         correct_answer: correctAnswerMap[answer.question_id._id.toString()],
+        all_answers: allAnswersMap[answer.question_id._id.toString()] || [],
         is_correct: answer.is_correct,
       })),
     };
@@ -574,6 +589,7 @@ export class TestAttemptService {
           content: question.content,
           type: question.type,
           question_number: question.question_number,
+          image: question.image,
           answers: answers,
         };
       }),
@@ -733,6 +749,7 @@ export class TestAttemptService {
           content: question.content,
           type: question.type,
           question_number: question.question_number,
+          image: question.image,
           answers: answers,
         };
       }),
@@ -830,10 +847,10 @@ export class TestAttemptService {
       }
 
       if (timeoutCount > 0) {
-        console.log(`Automatically timed out ${timeoutCount} test attempts`);
+        this.logger.log(`Automatically timed out ${timeoutCount} test attempts`);
       }
     } catch (error) {
-      console.error('Error in timeout cron job:', error);
+      this.logger.error('Error in timeout cron job:', error);
     }
   }
 
@@ -892,7 +909,7 @@ export class TestAttemptService {
     return false;
   }
 
-  
+
   /**
    * Manually abandon a test attempt (when user leaves the test page)
    * This should be called when the user navigates away or closes the test
@@ -902,11 +919,8 @@ export class TestAttemptService {
    * This should be called when the user navigates away or closes the test
    */
   async abandonTestAttempt(attemptId: string, userId: string): Promise<boolean> {
-    console.log(`[ABANDON] Attempting to abandon attempt ${attemptId} for user ${userId}`);
-    
     // Validate ObjectId format
     if (!Types.ObjectId.isValid(attemptId) || !Types.ObjectId.isValid(userId)) {
-      console.log(`[ABANDON] Invalid ID format`);
       return false;
     }
 
@@ -919,7 +933,6 @@ export class TestAttemptService {
       });
 
       if (!existingAttempt) {
-        console.log(`[ABANDON] Attempt ${attemptId} not found or not in progress`);
         return false;
       }
 
@@ -945,14 +958,12 @@ export class TestAttemptService {
       );
 
       if (attempt) {
-        console.log(`[ABANDON] Successfully abandoned attempt ${attemptId} after ${completionTime} seconds`);
         return true;
       } else {
-        console.log(`[ABANDON] Attempt ${attemptId} not found or already completed/abandoned`);
         return false;
       }
     } catch (error) {
-      console.error(`[ABANDON] Error abandoning attempt ${attemptId}:`, error);
+      this.logger.error(`Error abandoning attempt ${attemptId}:`, error);
       return false;
     }
   }
@@ -962,7 +973,7 @@ export class TestAttemptService {
     if (!Types.ObjectId.isValid(id)) {
       return null;
     }
-    
+
     const attempt = await this.testAttemptModel.findById(id);
     return attempt;
   }

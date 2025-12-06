@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: dacs-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: dacs
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - dacs-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./Backend
+      dockerfile: Dockerfile
+    container_name: dacs-backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./Backend/.env
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      MONGODB_URI: mongodb://admin:password@mongodb:27017/dacs?authSource=admin
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - dacs-network
+    volumes:
+      - ./Backend/src:/app/src
+    command: npm run start:dev
+
+volumes:
+  mongodb_data:
+
+networks:
+  dacs-network:
+    driver: bridge

@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseGuards,
@@ -19,6 +20,8 @@ import {
 import { QuizService } from './quiz.service';
 import { CreateQuizDto } from './dto/create-quiz.dto';
 import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
 import { UpdateQuizDto } from './dto/update-quiz.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 
@@ -73,6 +76,11 @@ export class QuizController {
   async findOne(@Param('id') id: string, @Req() req: any) {
     const quiz = await this.quizService.findOne(id);
     if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${id} not found`);
+    }
+
+    // Block access to hidden quizzes for non-admin users
+    if (quiz.is_hidden && req.user.role !== 'admin') {
       throw new NotFoundException(`Quiz with ID ${id} not found`);
     }
 
@@ -248,5 +256,69 @@ export class QuizController {
     }
 
     return { user, isAdmin, hasPremiumPackage };
+  }
+
+  /**
+   * ADMIN ENDPOINTS
+   */
+
+  /**
+   * Lấy thống kê quiz cho admin dashboard
+   */
+  @Get('admin/stats')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getAdminStats() {
+    return this.quizService.getAdminStats();
+  }
+
+  /**
+   * Lấy tất cả quiz với filters cho admin
+   */
+  @Get('admin/all')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin')
+  async getAllQuizzesForAdmin(
+    @Query('search') search?: string,
+    @Query('creatorId') creatorId?: string,
+    @Query('is_premium') is_premium?: string,
+    @Query('is_hidden') is_hidden?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+  ) {
+    const filters = {
+      search,
+      creatorId,
+      is_premium: is_premium === 'true' ? true : is_premium === 'false' ? false : undefined,
+      is_hidden: is_hidden === 'true' ? true : is_hidden === 'false' ? false : undefined,
+    };
+
+    const pagination = {
+      page: parseInt(page, 10),
+      limit: parseInt(limit, 10),
+    };
+
+    return this.quizService.getAllQuizzesForAdmin(filters, pagination);
+  }
+
+  /**
+   * Toggle is_hidden status của quiz
+   */
+  @Patch('admin/:id/toggle-hidden')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin')
+  async toggleQuizHidden(@Param('id') id: string) {
+    return this.quizService.toggleHidden(id);
+  }
+
+  /**
+   * Xóa quiz hoàn toàn (admin only)
+   */
+  @Delete('admin/:id')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('admin')
+  async adminDeleteQuiz(@Param('id') id: string) {
+    await this.quizService.adminDelete(id);
+    return { message: 'Quiz deleted successfully' };
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { BookOpen, CheckCircle, Home, Crown, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,9 +12,24 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Link, useSearchParams } from "react-router-dom";
+import { userAPI } from "../../services/api";
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
+
+  // Refresh user data from backend to get updated premium status
+  useEffect(() => {
+    const refreshUserData = async () => {
+      try {
+        const freshUser = await userAPI.getProfile();
+        localStorage.setItem('user', JSON.stringify(freshUser));
+        console.log('[PaymentSuccess] User data refreshed with premium status');
+      } catch (error) {
+        console.error('[PaymentSuccess] Failed to refresh user data:', error);
+      }
+    };
+    refreshUserData();
+  }, []);
   
   // Get payment details from URL parameters
   const paymentCode = searchParams.get('paymentCode') || 'Unknown';

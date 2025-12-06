@@ -23,12 +23,12 @@ export class User {
   role: string;
 
   @Prop({
-    type: mongoose.Schema.Types.Mixed,
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Package',
     required: false,
-    default: 'guest',
+    default: null,
   })
-  package_id: Types.ObjectId | Package | string;
+  package_id: Types.ObjectId | Package | null;
 
   @Prop({ default: false })
   isOnline: boolean;
@@ -36,7 +36,7 @@ export class User {
   @Prop({ default: Date.now })
   lastSeen: Date;
 
-  @Prop({ default: 'inactive' })
+  @Prop({ default: 'active' })
   status: string; // For account status (active/inactive/suspended)
 
   @Prop({ required: false })
@@ -64,6 +64,9 @@ export class User {
 
   @Prop({ required: false })
   subscriptionEndDate?: Date;
+
+  @Prop({ required: false })
+  subscriptionCanceledAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

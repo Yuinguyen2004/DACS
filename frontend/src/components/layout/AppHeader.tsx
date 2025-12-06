@@ -1,6 +1,6 @@
 "use client"
 import { Link, useNavigate } from "react-router-dom"
-import { BookOpen, Menu, LogOut, User, Settings, HelpCircle, Shield, Bell } from "lucide-react"
+import { BookOpen, Menu, LogOut, User, Shield, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -165,8 +165,7 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
     if (isLoggedIn && user) {
       try {
         const notifications = await notificationAPI.getMyNotifications()
-        // Add null check to prevent undefined filter error
-        const count = (notifications || []).filter(n => !n.isRead).length
+        const count = notifications.filter(n => !n.isRead).length
         setUnreadCount(count)
       } catch (error) {
         console.error('Failed to fetch notifications:', error)
@@ -208,6 +207,7 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
       { name: "Trang chủ", to: "/homepage" },
       { name: "Bài quiz của tôi", to: "/manage" },
       { name: "Lịch sử", to: "/history" },
+      { name: "Thông báo", to: "/notifications" },
       { name: "Nâng cấp", to: "/upgrade" },
     ]
 
@@ -316,7 +316,7 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
                     <DropdownMenuItem asChild className="transition-all duration-200 hover:bg-orange-50">
                       <Link to="/profile">
                         <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
+                        <span>Hồ sơ</span>
                       </Link>
                     </DropdownMenuItem>
                     {user && userUtils.isAdmin(user) && (
@@ -329,12 +329,12 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
                     )}
                   </DropdownMenuGroup>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className="text-red-600 focus:text-red-600 cursor-pointer transition-all duration-200 hover:bg-red-50"
                     onClick={handleLogout}
                   >
                     <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
+                    <span>Đăng xuất</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -346,13 +346,13 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
                 className="h-9 px-4 border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent transition-all duration-300 hover:scale-105 hover:shadow-md"
                 onClick={(e) => handleButtonClick(e.currentTarget)}
               >
-                Login
+                Đăng nhập
               </Button>
-              <Button 
+              <Button
                 className="h-9 px-4 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white transition-all duration-300 hover:scale-105 hover:shadow-lg"
                 onClick={(e) => handleButtonClick(e.currentTarget)}
               >
-                Register
+                Đăng ký
               </Button>
             </div>
           )}
@@ -367,7 +367,7 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
                 onClick={(e) => handleButtonClick(e.currentTarget)}
               >
                 <Menu className="h-6 w-6" />
-                <span className="sr-only">Toggle menu</span>
+                <span className="sr-only">Mở menu</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[250px] sm:w-[300px]">
@@ -427,7 +427,7 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
                     <Link to="/profile" className="w-full">
                       <Button variant="ghost" className="justify-start text-gray-700 hover:text-orange-600 w-full transition-all duration-300 hover:bg-orange-50">
                         <User className="mr-2 h-4 w-4" />
-                        Profile
+                        Hồ sơ
                       </Button>
                     </Link>
                     {user && userUtils.isAdmin(user) && (
@@ -438,13 +438,13 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
                         </Button>
                       </Link>
                     )}
-                    <Button 
-                      variant="ghost" 
+                    <Button
+                      variant="ghost"
                       className="justify-start text-red-600 hover:text-red-700 w-full transition-all duration-300 hover:bg-red-50"
                       onClick={handleLogout}
                     >
                       <LogOut className="mr-2 h-4 w-4" />
-                      Log out
+                      Đăng xuất
                     </Button>
                   </div>
                 ) : (
@@ -453,10 +453,10 @@ export function AppHeader({ isLoggedIn = true, userName = "Guest", userAvatarUrl
                       variant="outline"
                       className="h-10 px-4 border-gray-300 text-gray-700 hover:bg-gray-50 bg-transparent transition-all duration-300"
                     >
-                      Login
+                      Đăng nhập
                     </Button>
                     <Button className="h-10 px-4 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white transition-all duration-300">
-                      Register
+                      Đăng ký
                     </Button>
                   </div>
                 )}

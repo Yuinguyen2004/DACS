@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
 
 @Injectable()
 export class FirebaseConfigService {
+  private readonly logger = new Logger(FirebaseConfigService.name);
   private app: admin.app.App;
 
   constructor(private configService: ConfigService) {
@@ -46,10 +47,8 @@ export class FirebaseConfigService {
           projectId: this.configService.get<string>('FIREBASE_PROJECT_ID'),
         });
       }
-
-      console.log('Firebase Admin initialized successfully');
     } catch (error) {
-      console.error('Firebase initialization error:', error);
+      this.logger.error('Firebase initialization error:', error);
       throw new Error(`Failed to initialize Firebase: ${error.message}`);
     }
   }

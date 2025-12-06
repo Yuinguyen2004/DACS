@@ -38,55 +38,14 @@ export class FirebaseStrategy extends PassportStrategy(CustomStrategy, 'firebase
         user = await this.usersService.findByEmail(decodedToken.email);
         
       } catch (idTokenError) {
-        // If ID token verification fails, try custom token validation
-        console.log('ID token verification failed, trying custom token validation:', idTokenError.message);
+        // Reject all non-ID tokens - no fallback to custom tokens
+        console.error('Firebase ID token verification failed:', idTokenError.message);
         
-        try {
-          // Custom tokens are JWTs signed by our server, so we can decode them
-          // Parse the JWT payload to extract user information
-          const tokenParts = token.split('.');
-          if (tokenParts.length !== 3) {
-            throw new Error('Invalid token format');
-          }
-          
-          const payload = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-          
-          // Verify this is our custom token by checking the structure
-          if (!payload.uid || !payload.claims || !payload.claims.userId) {
-            throw new Error('Invalid custom token payload');
-          }
-          
-          // Extract user info from custom token claims
-          const userId = payload.claims.userId;
-          const firebaseUid = payload.uid;
-          
-          // Find user by ID
-          user = await this.usersService.findById(userId);
-          
-          if (!user) {
-            throw new Error('User not found for custom token');
-          }
-          
-          // Verify the Firebase UID matches
-          if (user.firebaseUid !== firebaseUid) {
-            throw new Error('Firebase UID mismatch');
-          }
-          
-          // Create a decodedToken-like object for consistency
-          decodedToken = {
-            uid: firebaseUid,
-            email: user.email,
-            role: payload.claims.role || user.role,
-            userId: userId
-          };
-          
-        } catch (customTokenError) {
-          console.error('Both ID token and custom token validation failed:', {
-            idTokenError: idTokenError.message,
-            customTokenError: customTokenError.message
-          });
-          return done(new UnauthorizedException('Invalid Firebase token'), false);
-        }
+        // Force user to re-authenticate with fresh Firebase ID token
+        return done(
+          new UnauthorizedException('Your session has expired. Please logout and login again to continue.'),
+          false
+        );
       }
 
       // Find user if not already found (only for ID token flow)
@@ -96,10 +55,6 @@ export class FirebaseStrategy extends PassportStrategy(CustomStrategy, 'firebase
       
       if (!user) {
         // Auto-create user if not exists (optional - you might want to require manual registration)
-        console.log(
-          'Creating new user from Firebase token:',
-          decodedToken.email,
-        );
         user = await this.usersService.createFromFirebase({
           email: decodedToken.email,
           firebaseUid: decodedToken.uid,
@@ -119,6 +74,14 @@ export class FirebaseStrategy extends PassportStrategy(CustomStrategy, 'firebase
 
       if (!user) {
         return done(new UnauthorizedException('Failed to create or find user'), false);
+      }
+
+      // Check if user is blocked (status: 'inactive')
+      if (user.status === 'inactive') {
+        return done(
+          new UnauthorizedException('Your account has been blocked by an administrator. Please contact support.'), 
+          false
+        );
       }
 
       // Return success with user data

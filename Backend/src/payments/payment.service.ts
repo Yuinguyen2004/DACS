@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import {
   Payment,
@@ -139,22 +139,11 @@ export class PaymentService {
       .map((key) => `${key}=${encodeURIComponent(sortedParams[key])}`)
       .join('&');
 
-    // Ghi log thông tin chữ ký chi tiết để debug
-    this.logger.debug('=== VNPAY SIGNATURE DEBUG INFO ===');
-    this.logger.debug(`Hash Secret: ${vnpHashSecret}`);
-    this.logger.debug(
-      `Sorted Parameters: ${JSON.stringify(sortedParams, null, 2)}`,
-    );
-    this.logger.debug(`Signature String: ${signatureString}`);
-
     // Tạo chữ ký
     const hmac = crypto.createHmac('sha512', vnpHashSecret);
     const secureHash = hmac
       .update(Buffer.from(signatureString, 'utf-8'))
       .digest('hex');
-
-    this.logger.debug(`Generated SecureHash: ${secureHash}`);
-    this.logger.debug('=== END SIGNATURE DEBUG INFO ===');
 
     // Thêm chữ ký vào tham số
     sortedParams.vnp_SecureHash = secureHash;
@@ -224,24 +213,11 @@ export class PaymentService {
       .map((key) => `${key}=${sortedParams[key]}`)
       .join('&');
 
-    // Ghi log thông tin xác minh chi tiết để debug
-    this.logger.debug('=== VNPAY VERIFICATION DEBUG INFO ===');
-    this.logger.debug(`Hash Secret: ${vnpHashSecret}`);
-    this.logger.debug(`Received SecureHash: ${secureHash}`);
-    this.logger.debug(
-      `Sorted Parameters: ${JSON.stringify(sortedParams, null, 2)}`,
-    );
-    this.logger.debug(`Verification String: ${signatureString}`);
-
     // Tính toán chữ ký
     const hmac = crypto.createHmac('sha512', vnpHashSecret);
     const calculatedHash = hmac
       .update(Buffer.from(signatureString, 'utf-8'))
       .digest('hex');
-
-    this.logger.debug(`Calculated SecureHash: ${calculatedHash}`);
-    this.logger.debug(`Hashes Match: ${calculatedHash === secureHash}`);
-    this.logger.debug('=== END VERIFICATION DEBUG INFO ===');
 
     const isValid = calculatedHash === secureHash;
     this.logger.log(`Signature verification: ${isValid ? 'VALID' : 'INVALID'}`);
@@ -437,16 +413,19 @@ export class PaymentService {
 
   async updateUserPackageAfterPayment(payment: PaymentDocument): Promise<void> {
     try {
-      this.logger.log(`Updating user package for payment ${payment._id}`);
+      this.logger.log(`[Package Update] Starting package update for payment ${payment._id}`);
+      this.logger.log(`[Package Update] User ID: ${payment.user_id}, Package ID: ${payment.package_id}`);
 
       // Lấy thông tin gói để xác định chi tiết đăng ký
+      this.logger.log(`[Package Update] Fetching package info...`);
       const packageInfo = await this.packageService.getPackageForPayment(
         payment.package_id.toString(),
       );
       if (!packageInfo) {
-        this.logger.error(`Package not found for payment ${payment._id}`);
+        this.logger.error(`[Package Update] Package not found for payment ${payment._id}`);
         return;
       }
+      this.logger.log(`[Package Update] Package found: ${packageInfo.name}, Duration: ${packageInfo.duration} days`);
 
       // Tính toán ngày đăng ký dựa trên thời lượng gói
       const subscriptionStartDate = new Date();
@@ -474,6 +453,9 @@ export class PaymentService {
       }
 
       // Cập nhật gói người dùng và chi tiết đăng ký
+      this.logger.log(`[Package Update] Updating user subscription type: ${subscriptionType}`);
+      this.logger.log(`[Package Update] Subscription dates: ${subscriptionStartDate} to ${subscriptionEndDate || 'lifetime'}`);
+      
       await this.usersService.updateUserPackage(
         payment.user_id.toString(),
         payment.package_id.toString(),
@@ -483,10 +465,11 @@ export class PaymentService {
       );
 
       this.logger.log(
-        `Successfully updated user ${payment.user_id} package to ${payment.package_id}`,
+        `[Package Update] Successfully updated user ${payment.user_id} package to ${payment.package_id}`,
       );
     } catch (error) {
-      this.logger.error('Failed to update user package after payment:', error);
+      this.logger.error('[Package Update] Failed to update user package after payment:', error);
+      this.logger.error('[Package Update] Error stack:', error.stack);
       // Không throw error để tránh ảnh hưởng đến luồng thanh toán
     }
   }
@@ -545,5 +528,100 @@ export class PaymentService {
 
     this.logger.debug(`Client IP detected: ${clientIp}`);
     return clientIp;
+  }
+
+  // Google Play Billing Verification
+  async verifyGooglePurchase(
+    userId: string,
+    purchaseToken: string,
+    productId: string,
+    packageId: string,
+  ): Promise<{ success: boolean; message: string; paymentCode?: string }> {
+    try {
+      this.logger.log(`[Google IAP] Starting verification for user ${userId}, package ${packageId}`);
+      
+      if (!Types.ObjectId.isValid(userId)) {
+        this.logger.error(`[Google IAP] Invalid user ID format: ${userId}`);
+        throw new BadRequestException('Invalid user ID format');
+      }
+
+      if (!Types.ObjectId.isValid(packageId)) {
+        this.logger.error(`[Google IAP] Invalid package ID format: ${packageId}`);
+        throw new BadRequestException('Invalid package ID format');
+      }
+
+      // 1. Verify with Google API (Mock for now)
+      const isValid = true;
+
+      if (!isValid) {
+        this.logger.warn(`[Google IAP] Invalid purchase token`);
+        return { success: false, message: 'Invalid purchase token' };
+      }
+
+      // 2. Create Payment Record
+      this.logger.log(`[Google IAP] Creating payment record...`);
+      const payment = await this.createPayment(
+        userId,
+        packageId,
+        PaymentMethod.GOOGLE_PAY,
+      );
+      this.logger.log(`[Google IAP] Payment created: ${payment._id}`);
+
+      // 3. Update Payment Status
+      this.logger.log(`[Google IAP] Updating payment status to SUCCESS...`);
+      await this.updatePaymentStatus(
+        (payment._id as any).toString(),
+        PaymentStatus.SUCCESS,
+        purchaseToken,
+        'success',
+      );
+      this.logger.log(`[Google IAP] Payment status updated successfully`);
+
+      // 4. Activate Premium for User
+      // Note: updatePaymentStatus already calls updateUserPackageAfterPayment if success
+      // So we don't need to manually update user here if that logic is sufficient.
+      // However, updateUserPackageAfterPayment relies on package duration.
+      // If the mobile app sends a packageId that exists in DB, it will work.
+
+      this.logger.log(`[Google IAP] Verification completed successfully`);
+      return {
+        success: true,
+        message: 'Premium activated successfully',
+        paymentCode: payment.payment_code,
+      };
+    } catch (error) {
+      this.logger.error(`[Google IAP] Error verifying Google purchase:`, error);
+      this.logger.error(`[Google IAP] Error stack:`, error.stack);
+      
+      // Re-throw NestJS exceptions as-is
+      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+        throw error;
+      }
+      
+      // Wrap other errors
+      throw new BadRequestException(`Failed to verify purchase: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update payment with transaction ID
+   */
+  async updatePaymentTransactionId(
+    paymentId: string,
+    transactionId: string,
+  ): Promise<void> {
+    await this.paymentModel.findByIdAndUpdate(paymentId, {
+      vnp_transaction_no: transactionId, // Reuse this field for ZaloPay
+    });
+    this.logger.log(`Payment ${paymentId} updated with transaction ID: ${transactionId}`);
+  }
+
+  /**
+   * Find payment by transaction ID
+   */
+  async findByTransactionId(transactionId: string): Promise<PaymentDocument | null> {
+    return this.paymentModel.findOne({
+      vnp_transaction_no: transactionId,
+    }).exec();
   }
 }
