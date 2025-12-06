@@ -24,7 +24,12 @@ jobs:
           cache-dependency-path: |
             frontend/package-lock.json
             Backend/package-lock.json
-            mobilefe/package-lock.json
+
+      # 2b. Setup Flutter
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
 
       # 3. Install Frontend dependencies
       - name: Install Frontend dependencies
@@ -39,7 +44,7 @@ jobs:
       # 5. Install Mobile Frontend dependencies
       - name: Install Mobile Frontend dependencies
         working-directory: ./mobilefe
-        run: npm ci
+        run: flutter pub get
 
       # 6. Lint Frontend
       - name: Lint Frontend
@@ -51,10 +56,10 @@ jobs:
         working-directory: ./Backend
         run: npm run lint --if-present
 
-      # 8. Lint Mobile Frontend
-      - name: Lint Mobile Frontend
+      # 8. Analyze Mobile Frontend
+      - name: Analyze Mobile Frontend
         working-directory: ./mobilefe
-        run: npm run lint --if-present
+        run: flutter analyze
 
       # 9. Build Frontend
       - name: Build Frontend
@@ -69,7 +74,7 @@ jobs:
       # 11. Build Mobile Frontend
       - name: Build Mobile Frontend
         working-directory: ./mobilefe
-        run: npm run build --if-present
+        run: flutter build apk --release
 
       # 12. Run Frontend tests
       - name: Run Frontend tests
@@ -84,7 +89,7 @@ jobs:
       # 14. Run Mobile Frontend tests
       - name: Run Mobile Frontend tests
         working-directory: ./mobilefe
-        run: npm test -- --coverage --watchAll=false --passWithNoTests --if-present
+        run: flutter test
         continue-on-error: true
 
       # 15. Upload coverage reports
