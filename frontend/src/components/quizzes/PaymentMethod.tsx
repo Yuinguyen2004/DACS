@@ -35,7 +35,7 @@ export default function PaymentMethodSelectionPage() {
         setPackages(data);
 
         if (data.length === 0) {
-          setError("No premium packages available");
+          setError("Không có gói Premium nào");
           return;
         }
 
@@ -53,7 +53,7 @@ export default function PaymentMethodSelectionPage() {
         }
       } catch (err) {
         console.error("Failed to fetch premium packages:", err);
-        setError("Failed to load premium packages");
+        setError("Không thể tải các gói Premium");
       } finally {
         setLoading(false);
       }
@@ -84,7 +84,7 @@ export default function PaymentMethodSelectionPage() {
       console.error("Payment creation failed:", err);
       setError(
         err.response?.data?.message ||
-          "Failed to create payment. Please try again."
+          "Không thể tạo thanh toán. Vui lòng thử lại."
       );
       setProcessing(false);
     }
@@ -95,7 +95,7 @@ export default function PaymentMethodSelectionPage() {
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-pink-50 flex items-center justify-center">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading packages...</span>
+          <span>Đang tải gói...</span>
         </div>
       </div>
     );
@@ -113,7 +113,7 @@ export default function PaymentMethodSelectionPage() {
                   <BookOpen className="w-5 h-5 text-white" />
                 </div>
                 <h1 className="text-lg font-semibold text-gray-900">
-                  Quizz Payment
+                  Thanh toán Quizz
                 </h1>
               </Link>
             </div>
@@ -125,11 +125,10 @@ export default function PaymentMethodSelectionPage() {
         <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
           <CardHeader className="text-center pb-6">
             <CardTitle className="text-3xl font-bold text-gray-900 mb-2">
-              Upgrade to Premium
+              Nâng cấp Premium
             </CardTitle>
             <CardDescription className="text-lg text-gray-700">
-              Choose your premium package and payment method to unlock all
-              features.
+              Chọn gói Premium và phương thức thanh toán để mở khóa tất cả tính năng.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -143,7 +142,7 @@ export default function PaymentMethodSelectionPage() {
             {packages.length > 1 && (
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Choose Package
+                  Chọn gói
                 </h3>
                 <RadioGroup
                   value={selectedPackage?._id || ""}
@@ -192,7 +191,7 @@ export default function PaymentMethodSelectionPage() {
             {selectedPackage && (
               <div className="space-y-4">
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Order Summary
+                  Thông tin đơn hàng
                 </h3>
                 <div className="flex justify-between text-gray-700">
                   <span>
@@ -225,7 +224,7 @@ export default function PaymentMethodSelectionPage() {
 
             <div className="space-y-4">
               <h3 className="text-xl font-semibold text-gray-900">
-                Choose a Method
+                Chọn phương thức thanh toán
               </h3>
               <RadioGroup
                 value={selectedMethod || ""}
@@ -300,10 +299,10 @@ export default function PaymentMethodSelectionPage() {
               {processing ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                  Processing...
+                  Đang xử lý...
                 </>
               ) : (
-                "Proceed to Payment"
+                "Tiến hành thanh toán"
               )}
             </Button>
           </CardContent>

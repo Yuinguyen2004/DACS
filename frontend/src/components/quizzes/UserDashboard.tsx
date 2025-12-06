@@ -89,8 +89,8 @@ export default function UserDashboardPage() {
     if (total === 0) {
       // No attempts yet - show empty state
       return [
-        { name: "Completed", value: 0, color: "hsl(var(--chart-1))" },
-        { name: "In Progress", value: 0, color: "hsl(var(--chart-2))" },
+        { name: "Hoàn thành", value: 0, color: "hsl(var(--chart-1))" },
+        { name: "Đang làm", value: 0, color: "hsl(var(--chart-2))" },
       ]
     }
 
@@ -98,8 +98,8 @@ export default function UserDashboardPage() {
     const inProgressPercent = 100 - completedPercent
 
     return [
-      { name: "Completed", value: completedPercent, color: "hsl(var(--chart-1))" },
-      { name: "In Progress", value: inProgressPercent, color: "hsl(var(--chart-2))" },
+      { name: "Hoàn thành", value: completedPercent, color: "hsl(var(--chart-1))" },
+      { name: "Đang làm", value: inProgressPercent, color: "hsl(var(--chart-2))" },
     ]
   })()
 
@@ -280,11 +280,11 @@ export default function UserDashboardPage() {
 
   const chartConfig = {
     completed: {
-      label: "Completed",
+      label: "Hoàn thành",
       color: "hsl(var(--chart-1))",
     },
     inProgress: {
-      label: "In Progress",
+      label: "Đang làm",
       color: "hsl(var(--chart-2))",
     },
   }
@@ -301,100 +301,7 @@ export default function UserDashboardPage() {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel className="group-data-[state=collapsed]:hidden">Navigation</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive>
-                    <Link to="/profile">
-                      <Home />
-                      <span>My Dashboard</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link to="/manage">
-                      <BookOpen />
-                      <span>My Quizzes</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link to="/history">
-                      <History />
-                      <span>Quiz History</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link to="/upgrade">
-                      <Crown />
-                      <span>Upgrade Premium</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton>
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar || "/placeholder.svg"} alt={user.name} />
-                      <AvatarFallback className="bg-gradient-to-br from-orange-400 to-pink-400 text-white text-sm">
-                        {user.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="group-data-[state=collapsed]:hidden">{user.name}</span>
-                    <ChevronDown className="ml-auto h-4 w-4 group-data-[state=collapsed]:hidden" />
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" side="right" align="start">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <HelpCircle className="mr-2 h-4 w-4" />
-                      <span>Support</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-red-600 focus:text-red-600 cursor-pointer"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Đăng xuất</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
       </Sidebar>
 
       <SidebarInset>
@@ -421,9 +328,9 @@ export default function UserDashboardPage() {
           {/* Overview & Activity Section */}
           <Card className="shadow-sm border-gray-200">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-900">Overview & Recent Activity</CardTitle>
+              <CardTitle className="text-xl font-semibold text-gray-900">Tổng quan & Hoạt động gần đây</CardTitle>
               <CardDescription className="text-gray-600">
-                Track your learning progress and recent quiz attempts.
+                Theo dõi tiến độ học tập và các lần làm quiz gần đây.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -431,9 +338,9 @@ export default function UserDashboardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-2 shadow-sm border-gray-200">
                   <CardHeader>
-                    <CardTitle className="text-lg font-semibold text-gray-900">Your Learning Progress</CardTitle>
+                    <CardTitle className="text-lg font-semibold text-gray-900">Tiến độ học tập</CardTitle>
                     <CardDescription className="text-gray-600">
-                      Overview of your quiz completion status.
+                      Tổng quan trạng thái hoàn thành quiz của bạn.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col md:flex-row items-center justify-center gap-6 p-6">
@@ -529,8 +436,8 @@ export default function UserDashboardPage() {
               {/* Recent Quiz Activity List */}
               <Card className="shadow-sm border-gray-200">
                 <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-gray-900">Recent Quiz Activity</CardTitle>
-                  <CardDescription className="text-gray-600">Review your most recent quiz attempts.</CardDescription>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Hoạt động quiz gần đây</CardTitle>
+                  <CardDescription className="text-gray-600">Xem lại các lần làm quiz gần đây.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
@@ -538,19 +445,19 @@ export default function UserDashboardPage() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Quiz Name
+                            Tên Quiz
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Highest Score
+                            Điểm cao nhất
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
+                            Trạng thái
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Date
+                            Ngày
                           </th>
                           <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
+                            Hành động
                           </th>
                         </tr>
                       </thead>
@@ -604,9 +511,9 @@ export default function UserDashboardPage() {
           {/* Profile Settings Section */}
           <Card className="shadow-sm border-gray-200">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-900">Profile Settings</CardTitle>
+              <CardTitle className="text-xl font-semibold text-gray-900">Cài đặt hồ sơ</CardTitle>
               <CardDescription className="text-gray-600">
-                Update your personal information and manage your account.
+                Cập nhật thông tin cá nhân và quản lý tài khoản.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -647,7 +554,7 @@ export default function UserDashboardPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
-                    Name
+                    Tên
                   </Label>
                   <Input
                     id="name"
