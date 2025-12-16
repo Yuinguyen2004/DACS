@@ -1,16 +1,17 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Search, Filter, BookOpen, Crown, Play, Lock, Clock, Users, Loader2, AlertCircle, TrendingUp, Star, Gift, SortAsc, Calendar, ThumbsUp, Sparkles, ChevronRight, ArrowRight } from "lucide-react"
+import { Search, Filter, BookOpen, Crown, Play, Clock, Users, Loader2, AlertCircle, TrendingUp, Star, Gift, SortAsc, Calendar, ThumbsUp, ChevronRight, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useNavigate } from "react-router-dom"
 import { quizAPI, authAPI, userUtils } from "../../services/api"
 import { QuizWithDetails, User } from "../../types/types"
 import { gsap } from 'gsap'
+import ResumeQuizBanner from "./ResumeQuizBanner"
 
 export default function QuizHomepage() {
   const navigate = useNavigate()
@@ -227,11 +228,11 @@ export default function QuizHomepage() {
         filtered.sort((a, b) => (b.totalAttempts || 0) - (a.totalAttempts || 0))
         break
       case "newest":
-        filtered.sort((a, b) => new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime())
+        filtered.sort((a, b) => new Date(b.createdAt || '').getTime() - new Date(a.createdAt || '').getTime())
         break
       case "rating":
-        // If you have ratings in the backend
-        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0))
+        // Use averageScore as rating metric
+        filtered.sort((a, b) => (b.averageScore || 0) - (a.averageScore || 0))
         break
       case "difficulty":
         filtered.sort((a, b) => (a.totalQuestions || 0) - (b.totalQuestions || 0))
@@ -422,6 +423,9 @@ export default function QuizHomepage() {
             </Card>
           </div>
 
+          {/* Resume Quiz Banner */}
+          <ResumeQuizBanner />
+
           {/* Search and Filters */}
           <div className="filter-section bg-gray-50 rounded-2xl p-6 mb-8">
             {/* Search Bar */}
@@ -559,9 +563,10 @@ export default function QuizHomepage() {
         <div className="quiz-section mb-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-900">Quiz gần đây</h2>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="text-blue-600 hover:text-blue-700"
+              onClick={() => navigate('/quizzes')}
               onMouseEnter={(e) => gsap.to(e.currentTarget, { x: 5, duration: 0.2 })}
               onMouseLeave={(e) => gsap.to(e.currentTarget, { x: 0, duration: 0.2 })}
             >
@@ -593,7 +598,7 @@ export default function QuizHomepage() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredQuizzes.slice(0, 8).map((quiz, index) => (
+              {filteredQuizzes.slice(0, 8).map((quiz) => (
                 <Card 
                   key={quiz._id} 
                   className="quiz-card group cursor-pointer border-0 bg-white shadow-md rounded-2xl overflow-hidden flex flex-col h-full"
@@ -689,10 +694,11 @@ export default function QuizHomepage() {
           {/* Show More Button */}
           {filteredQuizzes.length > 8 && (
             <div className="text-center mt-8">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="lg"
                 className="px-8 py-3 rounded-full border-gray-300 hover:border-blue-500 hover:text-blue-600"
+                onClick={() => navigate('/quizzes')}
                 onMouseEnter={(e) => gsap.to(e.currentTarget, { scale: 1.05, duration: 0.2 })}
                 onMouseLeave={(e) => gsap.to(e.currentTarget, { scale: 1, duration: 0.2 })}
               >

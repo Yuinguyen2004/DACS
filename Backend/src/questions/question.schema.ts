@@ -23,6 +23,9 @@ export class Question extends Document {
   explanation: string;
 
   @Prop()
+  image?: string;
+
+  @Prop()
   question_number: number;
 }
 

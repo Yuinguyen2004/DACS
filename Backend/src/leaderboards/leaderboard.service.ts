@@ -214,16 +214,22 @@ export class LeaderboardService {
         quizId: new Types.ObjectId(quizId),
       });
 
-      const leaderboardEntries: LeaderboardEntryDto[] = entries.map(
-        (entry) => ({
-          rank: entry.rank,
-          userId: entry.userId._id.toString(),
-          username: (entry.userId as any).username,
-          score: entry.score,
-          timeSpent: entry.timeSpent,
-          completedAt: (entry as any).createdAt,
-        }),
-      );
+      const leaderboardEntries: LeaderboardEntryDto[] = entries
+        .filter((entry) => entry.userId != null) // Skip entries with null userId
+        .map((entry) => {
+          // Handle both populated and non-populated userId
+          const userIdObj = entry.userId as any;
+          const isPopulated = userIdObj && userIdObj._id;
+
+          return {
+            rank: entry.rank,
+            userId: isPopulated ? userIdObj._id.toString() : entry.userId.toString(),
+            username: isPopulated ? userIdObj.username : 'Unknown User',
+            score: entry.score,
+            timeSpent: entry.timeSpent,
+            completedAt: (entry as any).createdAt,
+          };
+        });
 
       return {
         quizId,
@@ -232,6 +238,7 @@ export class LeaderboardService {
         totalParticipants,
       };
     } catch (error) {
+      console.error('Leaderboard Error:', error);
       if (
         error instanceof BadRequestException ||
         error instanceof NotFoundException

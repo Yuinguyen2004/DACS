@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as sgMail from '@sendgrid/mail';
 
 @Injectable()
 export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+
   constructor(private configService: ConfigService) {
     const apiKey = this.configService.get<string>('SENDGRID_API_KEY');
     if (apiKey) {
@@ -35,12 +37,8 @@ export class EmailService {
 
     try {
       await sgMail.send(msg);
-      console.log('Verification email sent successfully to:', email);
     } catch (error) {
-      console.error('SendGrid error:', error);
-      if (error.response) {
-        console.error('SendGrid response body:', error.response.body);
-      }
+      this.logger.error('SendGrid error:', error);
       throw new Error('Failed to send verification email');
     }
   }
@@ -133,9 +131,8 @@ export class EmailService {
 
     try {
       await sgMail.send(msg);
-      console.log('Welcome email sent successfully to:', email);
     } catch (error) {
-      console.error('Failed to send welcome email:', error);
+      this.logger.error('Failed to send welcome email:', error);
       // Don't throw error for welcome email - it's not critical
     }
   }

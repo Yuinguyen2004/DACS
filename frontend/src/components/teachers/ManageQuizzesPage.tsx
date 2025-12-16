@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { BookOpen, PlusCircle, Edit, Trash2, Crown, Search, Filter, Loader2, AlertCircle, PlayCircle, RefreshCcw, Clock } from "lucide-react"
+import { BookOpen, PlusCircle, Edit, Trash2, Crown, Search, Filter, Loader2, AlertCircle } from "lucide-react"
 import { gsap } from 'gsap'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,19 +10,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useNavigate } from "react-router-dom"
-import { authAPI, userUtils, quizAPI, testAttemptAPI } from "../../services/api"
+import { authAPI, userUtils, quizAPI } from "../../services/api"
 import { User, QuizWithDetails } from "../../types/types"
-
-type ResumeBannerState = {
-  attemptId: string
-  resumeToken: string
-  quizId: string
-  startedAt?: string
-  localStorageKey: string
-  quizTitle?: string
-  totalQuestions?: number
-  remainingSeconds?: number | null
-}
 
 export default function ManageQuizzesPage() {
   const navigate = useNavigate()
@@ -32,7 +21,6 @@ export default function ManageQuizzesPage() {
   const [filterPremium, setFilterPremium] = useState("all") // 'all', 'premium', 'free'
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string>("")
-  const [resumeBanner, setResumeBanner] = useState<ResumeBannerState | null>(null)
   
   // GSAP refs
   const containerRef = useRef<HTMLDivElement>(null)
@@ -79,111 +67,6 @@ export default function ManageQuizzesPage() {
     
     loadData()
   }, [navigate])
-
-  useEffect(() => {
-    let isMounted = true
-
-    const checkResumeAttempt = async () => {
-      if (typeof window === 'undefined') return
-
-      const attemptKeys = Object.keys(localStorage).filter((key) => key.startsWith('quiz_attempt_'))
-      if (attemptKeys.length === 0) {
-        if (isMounted) {
-          setResumeBanner(null)
-        }
-        return
-      }
-
-      for (const key of attemptKeys) {
-        const storedValue = localStorage.getItem(key)
-        if (!storedValue) continue
-
-        try {
-          const parsed = JSON.parse(storedValue)
-          if (!parsed?.quizId || !parsed?.attemptId) continue
-
-          try {
-            let resumeData: any
-            try {
-              resumeData = await testAttemptAPI.getActiveAttempt(parsed.quizId)
-            } catch (error) {
-              if (parsed.resumeToken) {
-                resumeData = await testAttemptAPI.resume(parsed.resumeToken)
-              } else {
-                throw error
-              }
-            }
-
-            if (resumeData && isMounted) {
-              setResumeBanner({
-                attemptId: resumeData.attempt_id || parsed.attemptId,
-                resumeToken: resumeData.resume_token || parsed.resumeToken,
-                quizId: parsed.quizId,
-                startedAt: parsed.startedAt,
-                localStorageKey: key,
-                quizTitle: resumeData.quiz?.title || 'Quiz chưa xác định',
-                totalQuestions: resumeData.total_questions ?? resumeData.questions?.length,
-                remainingSeconds: resumeData.remainingSeconds ?? null
-              })
-              return
-            }
-          } catch (error) {
-            console.warn('[MANAGE_QUIZ] Unable to verify resume attempt:', error)
-            localStorage.removeItem(key)
-          }
-        } catch (error) {
-          console.warn('[MANAGE_QUIZ] Invalid resume attempt data, clearing key', key)
-          localStorage.removeItem(key)
-        }
-      }
-
-      if (isMounted) {
-        setResumeBanner(null)
-      }
-    }
-
-    checkResumeAttempt()
-
-    return () => {
-      isMounted = false
-    }
-  }, [])
-
-  const formatStartedAt = (startedAt?: string) => {
-    if (!startedAt) return 'Thời gian bắt đầu chưa xác định'
-    try {
-      const date = new Date(startedAt)
-      return date.toLocaleString('vi-VN', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-      })
-    } catch (error) {
-      return startedAt
-    }
-  }
-
-  const formatRemainingSeconds = (seconds?: number | null) => {
-    if (seconds === null || seconds === undefined) return 'Không giới hạn thời gian'
-    if (seconds <= 0) return 'Đang chờ nộp bài'
-
-    const minutes = Math.floor(seconds / 60)
-    const remainingSeconds = seconds % 60
-    if (minutes === 0) {
-      return `${remainingSeconds} giây`
-    }
-    return `${minutes} phút ${remainingSeconds.toString().padStart(2, '0')} giây`
-  }
-
-  const handleResumeQuiz = () => {
-    if (!resumeBanner) return
-    navigate(`/test?quizId=${resumeBanner.quizId}`, { state: { resumedFromBanner: true } })
-  }
-
-  const handleDiscardResumeData = () => {
-    if (!resumeBanner) return
-    localStorage.removeItem(resumeBanner.localStorageKey)
-    setResumeBanner(null)
-  }
 
   // GSAP animations after loading
   useEffect(() => {
@@ -388,53 +271,6 @@ export default function ManageQuizzesPage() {
       </header>
 
       <main className="max-w-6xl mx-auto space-y-8">
-        {resumeBanner && (
-          <Card className="border-green-200 bg-green-50/80 shadow-sm">
-            <CardHeader className="pb-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-green-600">Quiz Resumption Successful</p>
-              <CardTitle className="text-2xl text-green-900">
-                Tiếp tục &ldquo;{resumeBanner.quizTitle}&rdquo;
-              </CardTitle>
-              <CardDescription className="text-green-800">
-                Hệ thống đã khôi phục tiến trình của bạn. Bạn có thể tiếp tục làm bài nơi mình đã dừng lại hoặc bỏ qua tiến trình này.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="space-y-1 text-sm text-green-900">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  <span>Bắt đầu lúc: {formatStartedAt(resumeBanner.startedAt)}</span>
-                </div>
-                {typeof resumeBanner.totalQuestions === 'number' && (
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4" />
-                    <span>{resumeBanner.totalQuestions} câu hỏi</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <RefreshCcw className="w-4 h-4" />
-                  <span>Thời gian còn lại: {formatRemainingSeconds(resumeBanner.remainingSeconds)}</span>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 w-full sm:flex-row sm:justify-end">
-                <Button
-                  variant="outline"
-                  onClick={handleDiscardResumeData}
-                  className="justify-center border-green-200 text-green-700 hover:bg-green-100"
-                >
-                  Hủy tiến trình
-                </Button>
-                <Button
-                  onClick={handleResumeQuiz}
-                  className="bg-green-600 text-white hover:bg-green-700 flex items-center justify-center gap-2"
-                >
-                  <PlayCircle className="w-4 h-4" />
-                  Tiếp tục làm bài
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
         {/* Top Actions */}
         <div ref={actionsRef} className="flex flex-col sm:flex-row justify-between items-center gap-4" style={{ opacity: 0 }}>
           <div className="relative flex-1 w-full sm:w-auto">
@@ -528,7 +364,7 @@ export default function ManageQuizzesPage() {
                         </TableCell>
                         <TableCell className="text-gray-700 text-sm">
                           {(() => {
-                            const dateValue = quiz.updated_at || quiz.created_at;
+                            const dateValue = quiz.updatedAt || quiz.createdAt;
                             if (!dateValue) return 'N/A';
                             
                             try {

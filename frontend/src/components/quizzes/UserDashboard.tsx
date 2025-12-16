@@ -2,21 +2,17 @@
 
 import type React from "react"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import {
-  Home,
   BookOpen,
-  History,
-  LogOut,
   Trophy,
   BarChart2,
   Crown,
-  ChevronDown,
-  User,
-  Settings,
-  HelpCircle,
   Key,
   Save,
+  AlertCircle,
+  Calendar,
+  XCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -28,85 +24,26 @@ import { Label } from "@/components/ui/label"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Pie, PieChart, Cell, ResponsiveContainer } from "recharts"
 import { Link, useNavigate } from "react-router-dom"
 import { authAPI, userUtils, userAPI, testAttemptAPI } from "../../services/api"
-import { User as UserType, TestAttempt, TestAttemptStatus, ChangePasswordDto } from "../../types/types"
-
-// Mock Featured Quizzes Data (kept for "Recommended Quizzes" section)
-const featuredQuizzes = [
-  {
-    id: 101,
-    title: "Python for Beginners",
-    description: "Start your coding journey with Python!",
-    questions: 20,
-    isPremium: false,
-    category: "Programming",
-  },
-  {
-    id: 102,
-    title: "Data Science Fundamentals",
-    description: "Explore the basics of data analysis and machine learning.",
-    questions: 30,
-    isPremium: true,
-    category: "Technology",
-  },
-  {
-    id: 103,
-    title: "History of Art",
-    description: "Discover major art movements and famous artists.",
-    questions: 25,
-    isPremium: false,
-    category: "Arts",
-  },
-  {
-    id: 104,
-    title: "Financial Literacy",
-    description: "Learn essential concepts for managing your money.",
-    questions: 15,
-    isPremium: true,
-    category: "Finance",
-  },
-]
-
-const chartConfig = {
-  completed: {
-    label: "Completed",
-    color: "hsl(var(--chart-1))",
-  },
-  inProgress: {
-    label: "In Progress",
-    color: "hsl(var(--chart-2))",
-  },
-  notStarted: {
-    label: "Not Started",
-    color: "hsl(var(--chart-3))",
-  },
-}
-
-type PasswordForm = ChangePasswordDto & { confirmPassword: string }
-type PasswordErrors = Partial<Record<keyof PasswordForm, string>>
+import { User as UserType, TestAttempt } from "../../types/types"
 
 export default function UserDashboardPage() {
   const navigate = useNavigate()
@@ -118,56 +55,30 @@ export default function UserDashboardPage() {
     name: '',
     email: '',
   })
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false)
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [passwordForm, setPasswordForm] = useState<PasswordForm>({
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  })
-  const [passwordErrors, setPasswordErrors] = useState<PasswordErrors>({})
-  const [passwordSubmitError, setPasswordSubmitError] = useState('')
-  const progressData = useMemo(() => {
-    const totalAttempts = userAttempts.length
+  const [isCanceling, setIsCanceling] = useState(false)
 
-    if (totalAttempts === 0) {
+  // Calculate progress data from actual user attempts
+  const progressData = (() => {
+    const completed = userAttempts.filter(a => a.status === 'completed').length
+    const inProgress = userAttempts.filter(a => a.status !== 'completed').length
+    const total = completed + inProgress
+
+    if (total === 0) {
+      // No attempts yet - show empty state
       return [
-        { key: "completed", name: chartConfig.completed.label, value: 0, color: chartConfig.completed.color },
-        { key: "inProgress", name: chartConfig.inProgress.label, value: 0, color: chartConfig.inProgress.color },
-        { key: "notStarted", name: chartConfig.notStarted.label, value: 100, color: chartConfig.notStarted.color },
+        { name: "Hoàn thành", value: 0, color: "hsl(var(--chart-1))" },
+        { name: "Đang làm", value: 0, color: "hsl(var(--chart-2))" },
       ]
     }
 
-    const completedCount = userAttempts.filter(
-      (attempt) => attempt.status === TestAttemptStatus.COMPLETED
-    ).length
-    const inProgressCount = userAttempts.filter(
-      (attempt) => attempt.status === TestAttemptStatus.IN_PROGRESS
-    ).length
-    const otherCount = Math.max(totalAttempts - (completedCount + inProgressCount), 0)
-    const toPercent = (count: number) => Math.round((count / totalAttempts) * 100)
+    const completedPercent = Math.round((completed / total) * 100)
+    const inProgressPercent = 100 - completedPercent
 
     return [
-      {
-        key: "completed",
-        name: chartConfig.completed.label,
-        value: toPercent(completedCount),
-        color: chartConfig.completed.color,
-      },
-      {
-        key: "inProgress",
-        name: chartConfig.inProgress.label,
-        value: toPercent(inProgressCount),
-        color: chartConfig.inProgress.color,
-      },
-      {
-        key: "notStarted",
-        name: chartConfig.notStarted.label,
-        value: toPercent(otherCount),
-        color: chartConfig.notStarted.color,
-      },
+      { name: "Hoàn thành", value: completedPercent, color: "hsl(var(--chart-1))" },
+      { name: "Đang làm", value: inProgressPercent, color: "hsl(var(--chart-2))" },
     ]
-  }, [userAttempts])
+  })()
 
   // Load user data on component mount
   useEffect(() => {
@@ -175,7 +86,7 @@ export default function UserDashboardPage() {
       try {
         console.log('[PROFILE] Loading user profile data...')
         setIsLoading(true)
-        
+
         // Check authentication
         const currentUser = authAPI.getCurrentUser()
         if (!currentUser) {
@@ -183,14 +94,14 @@ export default function UserDashboardPage() {
           navigate('/')
           return
         }
-        
+
         console.log('[PROFILE] Authenticated user found:', currentUser.name)
         setUser(currentUser)
         setProfileForm({
           name: currentUser.name || '',
           email: currentUser.email || '',
         })
-        
+
         // Fetch user's test attempts
         try {
           console.log('[PROFILE] Fetching user test attempts...')
@@ -201,7 +112,7 @@ export default function UserDashboardPage() {
           console.warn('[PROFILE] Failed to load test attempts:', attemptError)
           // Don't fail the whole page if attempts can't be loaded
         }
-        
+
       } catch (error: any) {
         console.error('[PROFILE] Failed to load user data:', error)
         if (error.response?.status === 401) {
@@ -213,7 +124,7 @@ export default function UserDashboardPage() {
         setIsLoading(false)
       }
     }
-    
+
     loadUserData()
   }, [navigate])
 
@@ -229,11 +140,11 @@ export default function UserDashboardPage() {
         name: profileForm.name,
         email: profileForm.email,
       })
-      
+
       // Update local storage and state
       localStorage.setItem('user', JSON.stringify(updatedUser))
       setUser(updatedUser)
-      
+
       alert('Cập nhật thông tin thành công!')
       console.log('[PROFILE] Profile updated successfully')
     } catch (error: any) {
@@ -242,89 +153,50 @@ export default function UserDashboardPage() {
     }
   }
 
-  const handlePasswordInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target
-    setPasswordForm((prev) => ({ ...prev, [id]: value }))
-
-    const field = id as keyof PasswordErrors
-    if (passwordErrors[field]) {
-      setPasswordErrors((prev) => ({ ...prev, [field]: undefined }))
-    }
-  }
-
-  const validatePasswordForm = () => {
-    const errors: PasswordErrors = {}
-
-    if (!passwordForm.oldPassword.trim()) {
-      errors.oldPassword = 'Vui lòng nhập mật khẩu hiện tại'
-    }
-
-    if (!passwordForm.newPassword.trim()) {
-      errors.newPassword = 'Vui lòng nhập mật khẩu mới'
-    } else if (passwordForm.newPassword.length < 6) {
-      errors.newPassword = 'Mật khẩu mới phải có ít nhất 6 ký tự'
-    } else if (passwordForm.newPassword === passwordForm.oldPassword) {
-      errors.newPassword = 'Mật khẩu mới phải khác mật khẩu hiện tại'
-    }
-
-    if (!passwordForm.confirmPassword.trim()) {
-      errors.confirmPassword = 'Vui lòng xác nhận mật khẩu mới'
-    } else if (passwordForm.confirmPassword !== passwordForm.newPassword) {
-      errors.confirmPassword = 'Mật khẩu xác nhận không khớp'
-    }
-
-    setPasswordErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const closePasswordModal = () => {
-    setIsPasswordModalOpen(false)
-    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
-    setPasswordErrors({})
-    setPasswordSubmitError('')
-  }
-
   const handleChangePassword = () => {
-    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
-    setPasswordErrors({})
-    setPasswordSubmitError('')
-    setIsPasswordModalOpen(true)
+    alert('Tính năng đổi mật khẩu sẽ được triển khai trong phiên bản tới.')
+    // TODO: Implement password change functionality
   }
 
-  const handleSubmitPasswordChange = async () => {
-    if (!user?._id) {
-      setPasswordSubmitError('Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.')
-      return
-    }
-
-    setPasswordSubmitError('')
-    const isValid = validatePasswordForm()
-    if (!isValid) return
-
+  const handleCancelSubscription = async () => {
     try {
-      setIsChangingPassword(true)
-      await userAPI.changePassword(user._id, {
-        oldPassword: passwordForm.oldPassword,
-        newPassword: passwordForm.newPassword,
-      })
-      alert('Đổi mật khẩu thành công!')
-      closePasswordModal()
+      setIsCanceling(true)
+      console.log('[PROFILE] Canceling subscription...')
+      await userAPI.cancelSubscription()
+
+      // Refresh user data
+      const updatedUser = await userAPI.getProfile()
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      setUser(updatedUser)
+
+      console.log('[PROFILE] Subscription canceled successfully')
+      alert('Hủy gói thành công. Bạn vẫn có thể sử dụng Premium đến hết thời hạn.')
     } catch (error: any) {
-      console.error('[PROFILE] Failed to change password:', error)
-      const apiMessage = error.response?.data?.message || 'Không thể đổi mật khẩu. Vui lòng thử lại.'
-      setPasswordSubmitError(apiMessage)
+      console.error('[PROFILE] Failed to cancel subscription:', error)
+      alert(error.response?.data?.message || 'Không thể hủy gói. Vui lòng thử lại sau.')
     } finally {
-      setIsChangingPassword(false)
+      setIsCanceling(false)
     }
   }
-  
-  const handleLogout = async () => {
-    console.log('[PROFILE] User logging out')
-    await authAPI.logout()
-    console.log('[PROFILE] Logout successful, redirecting to login')
-    navigate('/')
+
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return 'N/A'
+    return new Date(date).toLocaleDateString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
   }
-  
+
+  const formatSubscriptionType = (type: string | undefined) => {
+    switch (type?.toLowerCase()) {
+      case 'monthly': return 'Hàng tháng'
+      case 'yearly': return 'Hàng năm'
+      case 'lifetime': return 'Trọn đời'
+      default: return 'Premium'
+    }
+  }
+
   // Loading state
   if (isLoading) {
     return (
@@ -336,7 +208,7 @@ export default function UserDashboardPage() {
       </div>
     )
   }
-  
+
   // Error state
   if (error) {
     return (
@@ -352,7 +224,7 @@ export default function UserDashboardPage() {
       </div>
     )
   }
-  
+
   // No user found
   if (!user) {
     return (
@@ -376,17 +248,15 @@ export default function UserDashboardPage() {
     return "bg-red-100 text-red-800"
   }
 
-  const getFeaturedQuizStatus = (isPremium: boolean) => {
-    return isPremium ? (
-      <Badge className="bg-gradient-to-r from-orange-400 to-pink-400 text-white">
-        <Crown className="w-3 h-3 mr-1" />
-        Premium
-      </Badge>
-    ) : (
-      <Badge variant="outline" className="text-green-600 border-green-600">
-        Free
-      </Badge>
-    )
+  const chartConfig = {
+    completed: {
+      label: "Hoàn thành",
+      color: "hsl(var(--chart-1))",
+    },
+    inProgress: {
+      label: "Đang làm",
+      color: "hsl(var(--chart-2))",
+    },
   }
 
   return (
@@ -401,100 +271,7 @@ export default function UserDashboardPage() {
           </Link>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel className="group-data-[state=collapsed]:hidden">Navigation</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive>
-                    <Link to="/profile">
-                      <Home />
-                      <span>My Dashboard</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link to="/manage">
-                      <BookOpen />
-                      <span>My Quizzes</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link to="/history">
-                      <History />
-                      <span>Quiz History</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild>
-                    <Link to="/upgrade">
-                      <Crown />
-                      <span>Upgrade Premium</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton>
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.avatar_url || "/placeholder.svg"} alt={user.name} />
-                      <AvatarFallback className="bg-gradient-to-br from-orange-400 to-pink-400 text-white text-sm">
-                        {user.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="group-data-[state=collapsed]:hidden">{user.name}</span>
-                    <ChevronDown className="ml-auto h-4 w-4 group-data-[state=collapsed]:hidden" />
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" side="right" align="start">
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user.name}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <User className="mr-2 h-4 w-4" />
-                      <span>Profile</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Settings className="mr-2 h-4 w-4" />
-                      <span>Settings</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <HelpCircle className="mr-2 h-4 w-4" />
-                      <span>Support</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    className="text-red-600 focus:text-red-600 cursor-pointer"
-                    onClick={handleLogout}
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Đăng xuất</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
       </Sidebar>
 
       <SidebarInset>
@@ -521,9 +298,9 @@ export default function UserDashboardPage() {
           {/* Overview & Activity Section */}
           <Card className="shadow-sm border-gray-200">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-900">Overview & Recent Activity</CardTitle>
+              <CardTitle className="text-xl font-semibold text-gray-900">Tổng quan & Hoạt động gần đây</CardTitle>
               <CardDescription className="text-gray-600">
-                Track your learning progress and recent quiz attempts.
+                Theo dõi tiến độ học tập và các lần làm quiz gần đây.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
@@ -531,9 +308,9 @@ export default function UserDashboardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-2 shadow-sm border-gray-200">
                   <CardHeader>
-                    <CardTitle className="text-lg font-semibold text-gray-900">Your Learning Progress</CardTitle>
+                    <CardTitle className="text-lg font-semibold text-gray-900">Tiến độ học tập</CardTitle>
                     <CardDescription className="text-gray-600">
-                      Overview of your quiz completion status.
+                      Tổng quan trạng thái hoàn thành quiz của bạn.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-col md:flex-row items-center justify-center gap-6 p-6">
@@ -551,16 +328,16 @@ export default function UserDashboardPage() {
                             paddingAngle={5}
                             cornerRadius={5}
                           >
-                            {progressData.map((entry) => (
-                              <Cell key={entry.key} fill={entry.color} />
+                            {progressData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
                             ))}
                           </Pie>
                         </PieChart>
                       </ResponsiveContainer>
                     </ChartContainer>
                     <div className="flex flex-col gap-3 text-sm text-gray-700">
-                      {progressData.map((entry) => (
-                        <div key={entry.key} className="flex items-center space-x-2">
+                      {progressData.map((entry, index) => (
+                        <div key={index} className="flex items-center space-x-2">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.color }} />
                           <span>
                             {entry.name}: <span className="font-semibold">{entry.value}%</span>
@@ -593,13 +370,13 @@ export default function UserDashboardPage() {
                       </div>
                       <div>
                         <p className="text-3xl font-bold text-gray-900">
-                          {userAttempts.length > 0 
+                          {userAttempts.length > 0
                             ? Math.round(
                                 userAttempts
                                   .filter(a => a.status === 'completed')
                                   .reduce((acc, a) => acc + (a.score || 0), 0) /
                                 userAttempts.filter(a => a.status === 'completed').length
-                              ) 
+                              )
                             : 0}%
                         </p>
                         <p className="text-sm text-gray-600">Điểm trung bình</p>
@@ -629,8 +406,8 @@ export default function UserDashboardPage() {
               {/* Recent Quiz Activity List */}
               <Card className="shadow-sm border-gray-200">
                 <CardHeader>
-                  <CardTitle className="text-lg font-semibold text-gray-900">Recent Quiz Activity</CardTitle>
-                  <CardDescription className="text-gray-600">Review your most recent quiz attempts.</CardDescription>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Hoạt động quiz gần đây</CardTitle>
+                  <CardDescription className="text-gray-600">Xem lại các lần làm quiz gần đây.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
@@ -638,19 +415,19 @@ export default function UserDashboardPage() {
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Quiz Name
+                            Tên Quiz
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Highest Score
+                            Điểm cao nhất
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
+                            Trạng thái
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Date
+                            Ngày
                           </th>
                           <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Actions
+                            Hành động
                           </th>
                         </tr>
                       </thead>
@@ -704,16 +481,16 @@ export default function UserDashboardPage() {
           {/* Profile Settings Section */}
           <Card className="shadow-sm border-gray-200">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-900">Profile Settings</CardTitle>
+              <CardTitle className="text-xl font-semibold text-gray-900">Cài đặt hồ sơ</CardTitle>
               <CardDescription className="text-gray-600">
-                Update your personal information and manage your account.
+                Cập nhật thông tin cá nhân và quản lý tài khoản.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-4">
                 <Avatar className="h-20 w-20">
                   <AvatarImage
-                    src={user.avatar_url || "/placeholder.svg?height=80&width=80"}
+                    src={user.avatar || "/placeholder.svg?height=80&width=80"}
                     alt={user.name}
                   />
                   <AvatarFallback className="bg-gradient-to-br from-orange-400 to-pink-400 text-white text-2xl">
@@ -747,7 +524,7 @@ export default function UserDashboardPage() {
               <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                   <Label htmlFor="name" className="text-right">
-                    Name
+                    Tên
                   </Label>
                   <Input
                     id="name"
@@ -788,98 +565,126 @@ export default function UserDashboardPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Subscription Management Section - Only for Premium Users */}
+          {userUtils.hasPremiumAccess(user) && (
+            <Card className="shadow-sm border-gray-200">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-gray-900">Quản lý gói đăng ký</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Xem thông tin và quản lý gói Premium của bạn.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-gradient-to-r from-orange-50 to-pink-50 rounded-lg p-6 border border-orange-200">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-pink-400 rounded-lg flex items-center justify-center">
+                        <Crown className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Gói {formatSubscriptionType(user.subscriptionType)}
+                        </h3>
+                        {user.subscriptionCanceledAt ? (
+                          <p className="text-orange-600 font-medium flex items-center">
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Đã hủy - Hết hạn vào {formatDate(user.subscriptionEndDate)}
+                          </p>
+                        ) : user.subscriptionType?.toLowerCase() === 'lifetime' ? (
+                          <p className="text-green-600 font-medium flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            Truy cập trọn đời
+                          </p>
+                        ) : (
+                          <p className="text-gray-600 flex items-center">
+                            <Calendar className="w-4 h-4 mr-1" />
+                            Còn hiệu lực đến {formatDate(user.subscriptionEndDate)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Subscription Details */}
+                  <Separator className="my-4" />
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">Loại gói</p>
+                      <p className="font-medium text-gray-900">{formatSubscriptionType(user.subscriptionType)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Ngày bắt đầu</p>
+                      <p className="font-medium text-gray-900">{formatDate(user.subscriptionStartDate)}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Ngày hết hạn</p>
+                      <p className="font-medium text-gray-900">
+                        {user.subscriptionType?.toLowerCase() === 'lifetime' ? 'Không giới hạn' : formatDate(user.subscriptionEndDate)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">Trạng thái</p>
+                      <p className={`font-medium ${user.subscriptionCanceledAt ? 'text-orange-600' : 'text-green-600'}`}>
+                        {user.subscriptionCanceledAt ? 'Đã hủy' : 'Đang hoạt động'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Cancel Button - Only show if not canceled and not lifetime */}
+                  {!user.subscriptionCanceledAt && user.subscriptionType?.toLowerCase() !== 'lifetime' && (
+                    <>
+                      <Separator className="my-4" />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="text-red-600 border-red-200 hover:bg-red-50 bg-transparent"
+                            disabled={isCanceling}
+                          >
+                            {isCanceling ? (
+                              <>
+                                <span className="animate-spin mr-2">⏳</span>
+                                Đang xử lý...
+                              </>
+                            ) : (
+                              <>
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Hủy gói đăng ký
+                              </>
+                            )}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="flex items-center">
+                              <AlertCircle className="w-5 h-5 mr-2 text-orange-500" />
+                              Bạn có chắc chắn muốn hủy?
+                            </AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Bạn vẫn có thể sử dụng các tính năng Premium đến ngày {formatDate(user.subscriptionEndDate)}.
+                              Sau đó, tài khoản sẽ được chuyển về gói Miễn phí.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Giữ gói</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={handleCancelSubscription}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Xác nhận hủy
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </SidebarInset>
-
-      {isPasswordModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-6">
-              <h3 className="text-2xl font-semibold text-gray-900">Đổi mật khẩu</h3>
-              <p className="mt-1 text-sm text-gray-600">
-                Vui lòng nhập mật khẩu hiện tại và đặt mật khẩu mới an toàn.
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="oldPassword" className="text-sm font-medium text-gray-700">
-                  Mật khẩu hiện tại
-                </Label>
-                <Input
-                  id="oldPassword"
-                  type="password"
-                  value={passwordForm.oldPassword}
-                  onChange={handlePasswordInputChange}
-                  className="mt-1 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
-                  placeholder="Nhập mật khẩu hiện tại"
-                />
-                {passwordErrors.oldPassword && (
-                  <p className="mt-1 text-sm text-red-600">{passwordErrors.oldPassword}</p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="newPassword" className="text-sm font-medium text-gray-700">
-                  Mật khẩu mới
-                </Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={passwordForm.newPassword}
-                  onChange={handlePasswordInputChange}
-                  className="mt-1 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
-                  placeholder="Ít nhất 6 ký tự"
-                />
-                {passwordErrors.newPassword && (
-                  <p className="mt-1 text-sm text-red-600">{passwordErrors.newPassword}</p>
-                )}
-              </div>
-
-              <div>
-                <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  Nhập lại mật khẩu mới
-                </Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={passwordForm.confirmPassword}
-                  onChange={handlePasswordInputChange}
-                  className="mt-1 border-gray-200 focus:border-orange-400 focus:ring-orange-400"
-                  placeholder="Nhập lại mật khẩu mới"
-                />
-                {passwordErrors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600">{passwordErrors.confirmPassword}</p>
-                )}
-              </div>
-
-              {passwordSubmitError && (
-                <div className="rounded-md border border-red-100 bg-red-50 p-3 text-sm text-red-700">
-                  {passwordSubmitError}
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button
-                variant="outline"
-                onClick={closePasswordModal}
-                disabled={isChangingPassword}
-                className="border-gray-200 text-gray-700 hover:bg-gray-50"
-              >
-                Hủy
-              </Button>
-              <Button
-                onClick={handleSubmitPasswordChange}
-                disabled={isChangingPassword}
-                className="bg-gradient-to-r from-orange-400 to-pink-400 text-white hover:from-orange-500 hover:to-pink-500"
-              >
-                {isChangingPassword ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </SidebarProvider>
   )
 }

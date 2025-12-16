@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
+  Logger,
   NotFoundException,
   Type,
 } from '@nestjs/common';
@@ -44,6 +45,8 @@ interface IExtractedQuestion {
  */
 @Injectable()
 export class QuizService {
+  private readonly logger = new Logger(QuizService.name);
+
   constructor(
     @InjectModel(Quiz.name) private quizModel: Model<Quiz>, // Model Quiz để thao tác với database
     @InjectModel(Question.name) private questionModel: Model<Question>, // Model Question
@@ -56,7 +59,7 @@ export class QuizService {
    * @returns Promise<Quiz[]> - Danh sách tất cả quiz kèm thông tin user tạo
    */
   async findAll() {
-    const quizzes = await this.quizModel.find().populate('user_id', 'username email');
+    const quizzes = await this.quizModel.find({ is_hidden: { $ne: true } }).populate('user_id', 'username email');
     
     // Add total question count for each quiz
     const quizzesWithDetails = await Promise.all(
@@ -90,7 +93,7 @@ export class QuizService {
    */
   async findNonPremiumQuizzes() {
     return this.quizModel
-      .find({ is_premium: false })
+      .find({ is_premium: false, is_hidden: { $ne: true } })
       .populate('user_id', 'username email');
   }
 
@@ -227,14 +230,12 @@ export class QuizService {
     let rawText = '';
     try {
       if (file.mimetype === 'application/pdf') {
-        console.log('[IMPORT] Extracting text from PDF...');
         const result = await pdfParse(file.buffer);
         rawText = result.text;
       } else if (
         file.mimetype ===
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
       ) {
-        console.log('[IMPORT] Extracting text from DOCX...');
         const result = await mammoth.extractRawText({ buffer: file.buffer });
         rawText = result.value;
       } else {
@@ -358,16 +359,14 @@ export class QuizService {
     let rawText = '';
     try {
       if (file.mimetype === 'application/pdf') {
-        console.log('[FILE_PROCESSING] Extracting text from PDF...');
         const result = await pdfParse(file.buffer);
         rawText = result.text;
       } else {
-        console.log('[FILE_PROCESSING] Extracting text from DOCX...');
         const result = await mammoth.extractRawText({ buffer: file.buffer });
         rawText = result.value;
       }
     } catch (extractError) {
-      console.error('[FILE_PROCESSING] Text extraction failed:', extractError);
+      this.logger.error('[FILE_PROCESSING] Text extraction failed:', extractError);
       throw new BadRequestException(
         'Không thể đọc nội dung file. Vui lòng đảm bảo: ' +
         '1) File không bị mã hóa hoặc bảo vệ mật khẩu, ' +
@@ -385,8 +384,6 @@ export class QuizService {
         `Vui lòng kiểm tra file có chứa văn bản có thể đọc được.`,
       );
     }
-
-    console.log('[FILE_PROCESSING] Extracted text length:', rawText.length);
 
     // Validate desired question count if provided
     if (desiredQuestionCount !== undefined && desiredQuestionCount !== null) {
@@ -416,13 +413,6 @@ export class QuizService {
       options: q.options,
       correctAnswerIndex: q.options.findIndex((opt) => opt === q.correctAnswer),
     }));
-
-    // Log success
-    console.log('[FILE_PROCESSING] Successfully processed file:', {
-      originalName: file.originalname,
-      mimeType: file.mimetype,
-      questionCount: questions.length,
-    });
 
     return {
       questions: questions,
@@ -782,7 +772,7 @@ ${rawText}
         actualQuestionCount < desiredQuestionCount
       ) {
         // AI generated fewer than requested - log warning but accept
-        console.warn(
+        this.logger.warn(
           `[AI_QUESTION_COUNT] Requested ${desiredQuestionCount} but only ${actualQuestionCount} could be generated`,
         );
       }
@@ -792,17 +782,9 @@ ${rawText}
       parsedJson.requestedCount = desiredQuestionCount;
       parsedJson.actualCount = finalQuestions.length;
 
-      // Log success
-      console.log('[AI_SUCCESS] Successfully processed quiz:', {
-        title: parsedJson.title,
-        questionCount: finalQuestions.length,
-        requestedCount: desiredQuestionCount,
-        timeLimit: parsedJson.time_limit,
-      });
-
       return parsedJson;
     } catch (error) {
-      console.error('[AI_ERROR] Error processing Gemini API response:', error);
+      this.logger.error('[AI_ERROR] Error processing Gemini API response:', error);
 
       // Handle specific error types
       if (error.message === 'AI_TIMEOUT') {
@@ -834,5 +816,151 @@ ${rawText}
         'Không thể phân tích dữ liệu từ AI. Vui lòng thử lại với nội dung khác.',
       );
     }
+  }
+
+  /**
+   * ADMIN METHODS
+   */
+
+  /**
+   * Lấy thống kê quiz cho admin dashboard
+   * @returns Promise<object> - Các chỉ số thống kê
+   */
+  async getAdminStats() {
+    const [totalQuizzes, hiddenQuizzes, premiumQuizzes, totalQuestions] = await Promise.all([
+      this.quizModel.countDocuments(),
+      this.quizModel.countDocuments({ is_hidden: true }),
+      this.quizModel.countDocuments({ is_premium: true }),
+      this.questionModel.countDocuments(),
+    ]);
+
+    return {
+      totalQuizzes,
+      hiddenQuizzes,
+      premiumQuizzes,
+      freeQuizzes: totalQuizzes - premiumQuizzes,
+      totalQuestions,
+    };
+  }
+
+  /**
+   * Lấy tất cả quiz cho admin với filters và pagination
+   * @param filters - Bộ lọc (search, creator, is_premium, is_hidden)
+   * @param pagination - Phân trang (page, limit)
+   * @returns Promise<object> - Danh sách quiz và metadata
+   */
+  async getAllQuizzesForAdmin(
+    filters: {
+      search?: string;
+      creatorId?: string;
+      is_premium?: boolean;
+      is_hidden?: boolean;
+    },
+    pagination: { page: number; limit: number },
+  ) {
+    const { search, creatorId, is_premium, is_hidden } = filters;
+    const { page, limit } = pagination;
+
+    // Build query
+    const query: any = {};
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    if (creatorId) {
+      query.user_id = new Types.ObjectId(creatorId);
+    }
+
+    if (is_premium !== undefined) {
+      query.is_premium = is_premium;
+    }
+
+    if (is_hidden !== undefined) {
+      query.is_hidden = is_hidden;
+    }
+
+    // Execute query with pagination
+    const [quizzes, total] = await Promise.all([
+      this.quizModel
+        .find(query)
+        .populate('user_id', 'username email displayName')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .exec(),
+      this.quizModel.countDocuments(query),
+    ]);
+
+    // Add question count for each quiz
+    const quizzesWithDetails = await Promise.all(
+      quizzes.map(async (quiz) => {
+        const questionCount = await this.questionModel.countDocuments({
+          quiz_id: quiz._id,
+        });
+
+        return {
+          ...quiz.toObject(),
+          questionCount,
+        };
+      }),
+    );
+
+    return {
+      quizzes: quizzesWithDetails,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Toggle is_hidden status của quiz
+   * @param quizId - ID của quiz
+   * @returns Promise<Quiz> - Quiz đã cập nhật
+   */
+  async toggleHidden(quizId: string) {
+    const quiz = await this.quizModel.findById(quizId);
+    if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${quizId} not found`);
+    }
+
+    quiz.is_hidden = !quiz.is_hidden;
+    await quiz.save();
+
+    return quiz;
+  }
+
+  /**
+   * Xóa quiz và tất cả dữ liệu liên quan (admin only)
+   * @param quizId - ID của quiz cần xóa
+   * @returns Promise<void>
+   */
+  async adminDelete(quizId: string) {
+    const quiz = await this.quizModel.findById(quizId);
+    if (!quiz) {
+      throw new NotFoundException(`Quiz with ID ${quizId} not found`);
+    }
+
+    // Lấy tất cả question IDs thuộc quiz này
+    const questions = await this.questionModel.find({ quiz_id: quizId });
+    const questionIds = questions.map((q) => q._id);
+
+    // Xóa tất cả answers thuộc các questions này
+    if (questionIds.length > 0) {
+      await this.answerModel.deleteMany({ question_id: { $in: questionIds } });
+    }
+
+    // Xóa tất cả questions
+    await this.questionModel.deleteMany({ quiz_id: quizId });
+
+    // Xóa quiz
+    await this.quizModel.findByIdAndDelete(quizId);
   }
 }

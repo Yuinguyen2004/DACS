@@ -9,4 +9,8 @@ export class UpdateQuestionDto {
   @IsOptional()
   @IsIn(['mcq', 'true_false'])
   type?: string;
+
+  @IsString()
+  @IsOptional()
+  image?: string;
 }

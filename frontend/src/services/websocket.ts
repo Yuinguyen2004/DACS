@@ -4,9 +4,6 @@ import { Notification as NotificationType } from '../types/types';
 
 class WebSocketService {
   private socket: Socket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
 
   connect(): void {
     const token = authAPI.getToken();
@@ -42,7 +39,6 @@ class WebSocketService {
 
     this.socket.on('connect', () => {
       console.log('✅ WebSocket connected to notifications');
-      this.reconnectAttempts = 0;
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -80,21 +76,6 @@ class WebSocketService {
     this.socket.on('error', (error: any) => {
       console.error('❌ WebSocket error:', error);
     });
-  }
-
-  private handleReconnect(): void {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-      
-      setTimeout(() => {
-        if (this.socket && !this.socket.connected) {
-          this.socket.connect();
-        }
-      }, this.reconnectDelay * this.reconnectAttempts);
-    } else {
-      console.error('❌ Max reconnection attempts reached');
-    }
   }
 
   private handleNewNotification(notification: NotificationType): void {

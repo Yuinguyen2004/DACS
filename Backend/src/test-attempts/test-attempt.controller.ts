@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -62,8 +63,15 @@ export class TestAttemptController {
     );
   }
 
-
-
+  /**
+   * API xoa lich su lam bai cua user
+   * Chi xoa cac attempt da hoan thanh (completed, late, abandoned)
+   * Khong xoa attempt dang in_progress
+   */
+  @Delete('history')
+  async clearTestHistory(@Request() req: any) {
+    return this.testAttemptService.clearTestHistory(req.user.userId as string);
+  }
   /**
    * API lay active attempt cua user cho quiz nay
    * GET /test-attempts/active?quiz_id=xxx

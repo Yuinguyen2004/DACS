@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsIn } from 'class-validator';
+import { IsString, IsNotEmpty, IsIn, IsOptional } from 'class-validator';
 
 export class CreateQuestionDto {
   @IsString()
@@ -13,4 +13,8 @@ export class CreateQuestionDto {
   @IsNotEmpty()
   @IsIn(['mcq', 'true_false'])
   type: string;
+
+  @IsOptional()
+  @IsString()
+  image?: string;
 }
