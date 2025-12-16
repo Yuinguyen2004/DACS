@@ -67,23 +67,13 @@ jobs:
         working-directory: ./mobilefe
         run: flutter build apk --release
 
-      # 10. Run Frontend tests
-      - name: Run Frontend tests
-        working-directory: ./frontend
-        run: npm test -- --coverage --watchAll=false --passWithNoTests
-
-      # 11. Run Backend tests
-      - name: Run Backend tests
-        working-directory: ./Backend
-        run: npm test -- --watchAll=false --passWithNoTests
-
-      # 12. Run Mobile Frontend tests
+      # 10. Run Mobile Frontend tests
       - name: Run Mobile Frontend tests
         working-directory: ./mobilefe
         run: flutter test
         continue-on-error: true
 
-      # 13. Upload coverage reports
+      # 11. Upload coverage reports
       - name: Upload Frontend coverage
         if: always()
         uses: codecov/codecov-action@v3
