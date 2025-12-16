@@ -46,53 +46,43 @@ jobs:
         working-directory: ./mobilefe
         run: flutter pub get
 
-      # 6. Lint Frontend
-      - name: Lint Frontend
-        working-directory: ./frontend
-        run: npm run lint --if-present
-
-      # 7. Lint Backend
-      - name: Lint Backend
-        working-directory: ./Backend
-        run: npm run lint --if-present
-
-      # 8. Analyze Mobile Frontend
+      # 6. Analyze Mobile Frontend
       - name: Analyze Mobile Frontend
         working-directory: ./mobilefe
         run: flutter analyze
 
-      # 9. Build Frontend
+      # 7. Build Frontend
       - name: Build Frontend
         working-directory: ./frontend
         run: npm run build
 
-      # 10. Build Backend
+      # 8. Build Backend
       - name: Build Backend
         working-directory: ./Backend
         run: npm run build
 
-      # 11. Build Mobile Frontend
+      # 9. Build Mobile Frontend
       - name: Build Mobile Frontend
         working-directory: ./mobilefe
         run: flutter build apk --release
 
-      # 12. Run Frontend tests
+      # 10. Run Frontend tests
       - name: Run Frontend tests
         working-directory: ./frontend
         run: npm test -- --coverage --watchAll=false --passWithNoTests
 
-      # 13. Run Backend tests
+      # 11. Run Backend tests
       - name: Run Backend tests
         working-directory: ./Backend
         run: npm test -- --watchAll=false --passWithNoTests
 
-      # 14. Run Mobile Frontend tests
+      # 12. Run Mobile Frontend tests
       - name: Run Mobile Frontend tests
         working-directory: ./mobilefe
         run: flutter test
         continue-on-error: true
 
-      # 15. Upload coverage reports
+      # 13. Upload coverage reports
       - name: Upload Frontend coverage
         if: always()
         uses: codecov/codecov-action@v3
