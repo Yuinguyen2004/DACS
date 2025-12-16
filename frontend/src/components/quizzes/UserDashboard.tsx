@@ -4,17 +4,10 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import {
-  Home,
   BookOpen,
-  History,
-  LogOut,
   Trophy,
   BarChart2,
   Crown,
-  ChevronDown,
-  User,
-  Settings,
-  HelpCircle,
   Key,
   Save,
   AlertCircle,
@@ -31,26 +24,11 @@ import { Label } from "@/components/ui/label"
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,7 +40,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Pie, PieChart, Cell, ResponsiveContainer } from "recharts"
 import { Link, useNavigate } from "react-router-dom"
 import { authAPI, userUtils, userAPI, testAttemptAPI } from "../../services/api"
@@ -179,13 +156,6 @@ export default function UserDashboardPage() {
   const handleChangePassword = () => {
     alert('Tính năng đổi mật khẩu sẽ được triển khai trong phiên bản tới.')
     // TODO: Implement password change functionality
-  }
-
-  const handleLogout = async () => {
-    console.log('[PROFILE] User logging out')
-    await authAPI.logout()
-    console.log('[PROFILE] Logout successful, redirecting to login')
-    navigate('/')
   }
 
   const handleCancelSubscription = async () => {
