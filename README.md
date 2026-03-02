@@ -1,186 +1,275 @@
 # DACS - E-Learning Quiz Platform
 
-Một nền tảng học tập trực tuyến với hệ thống quiz và bài kiểm tra thông minh, hỗ trợ thanh toán đa dạng và quản lý leaderboard.
+Nen tang hoc tap truc tuyen voi he thong quiz va bai kiem tra thong minh, ho tro thanh toan da dang, quan ly leaderboard, va ung dung mobile.
 
-## 🚀 Tính năng chính
+## Tinh nang chinh
 
-### 🔐 Hệ thống xác thực & người dùng
-- **Đăng ký/Đăng nhập**: Xác thực JWT an toàn
-- **Quản lý hồ sơ**: Cập nhật thông tin, đổi mật khẩu, avatar người dùng
-- **Phân quyền**: User và Admin với các quyền hạn khác nhau
-- **Gói đăng ký**: Hệ thống subscription với nhiều loại gói (monthly, yearly, lifetime)
+### He thong xac thuc & nguoi dung
+- Dang ky/Dang nhap voi JWT va Firebase Authentication
+- Quan ly ho so: cap nhat thong tin, doi mat khau, avatar
+- Phan quyen User/Admin voi Guards va Decorators
+- He thong subscription voi nhieu loai goi (monthly, yearly, lifetime)
 
-### 📝 Hệ thống Quiz
-- **Tạo Quiz**: Tạo quiz với hình ảnh, giới hạn thời gian, câu hỏi premium *(Chỉ Admin & Premium Users)*
-- **Import tự động**: Nhập quiz từ file Word (.docx) hoặc PDF bằng AI (Gemini) *(Chỉ Admin & Premium Users)*
-- **Loại câu hỏi**: Trắc nghiệm (MCQ) và Đúng/Sai (True/False)
-- **Quản lý quyền**: Chỉ chủ sở hữu hoặc admin mới có thể sửa/xóa quiz
-- **Quiz Premium**: Yêu cầu gói trả phí để truy cập
-- **Phân loại nội dung**: Quiz miễn phí vs Premium với kiểm soát truy cập nghiêm ngặt
+### He thong Quiz
+- Tao quiz voi hinh anh, gioi han thoi gian, cau hoi premium (Admin & Premium Users)
+- Import tu dong tu file Word (.docx) hoac PDF bang Google Gemini AI (Admin & Premium Users)
+- Loai cau hoi: Trac nghiem (MCQ) va Dung/Sai (True/False)
+- Quan ly quyen: chi chu so huu hoac admin co the sua/xoa quiz
+- Phan loai noi dung mien phi vs Premium voi kiem soat truy cap
 
-### 🎯 Làm bài & Chấm điểm
-- **Bắt đầu bài thi**: Hệ thống tracking thời gian làm bài với kiểm tra quyền truy cập
-- **Kiểm soát Premium**: Tự động chặn user thường làm quiz premium
-- **Nộp bài**: Tự động chấm điểm và lưu kết quả
-- **Lịch sử**: Xem lại các lần làm bài trước đó
-- **Chi tiết kết quả**: Review đáp án đúng/sai sau khi hoàn thành
+### Lam bai & Cham diem
+- Tracking thoi gian lam bai voi kiem tra quyen truy cap
+- Tu dong chan user thuong lam quiz premium
+- Tu dong cham diem va luu ket qua
+- Xem lai lich su va chi tiet dap an dung/sai
 
-### 🏆 Bảng xếp hạng (Leaderboard)
-- **Ranking theo Quiz**: Xếp hạng người dùng dựa trên điểm số
-- **Thống kê cá nhân**: Xem vị trí của mình trong từng quiz
-- **Quản lý Admin**: Admin có thể tạo/sửa/xóa bảng xếp hạng
+### Bang xep hang (Leaderboard)
+- Xep hang nguoi dung theo diem so tung quiz
+- Thong ke ca nhan va vi tri cua minh
+- Admin quan ly tao/sua/xoa bang xep hang
 
-### 💳 Hệ thống thanh toán
-- **VNPay**: Thanh toán qua ví điện tử VNPay (Việt Nam)
-- **PayPal**: Thanh toán quốc tế qua PayPal
-- **Webhook**: Xử lý tự động kết quả thanh toán
-- **Return URLs**: Xử lý redirect sau thanh toán thành công/thất bại
-- **Hủy subscription**: Người dùng có thể hủy gói đăng ký
+### He thong thanh toan
+- VNPay: thanh toan qua vi dien tu (Viet Nam)
+- PayPal: thanh toan quoc te
+- Webhook xu ly tu dong ket qua thanh toan
+- Return URLs redirect sau thanh toan thanh cong/that bai
+- Huy subscription
 
-### 🔔 Hệ thống thông báo
-- **Real-time WebSocket**: Socket.IO cho thông báo tức thời
-- **Thông báo cá nhân**: Gửi thông báo cho từng người dùng
-- **Broadcast**: Admin gửi thông báo tới nhiều người cùng lúc
-- **Thông báo hệ thống**: Thông báo tự động từ hệ thống
-- **Email notifications**: SendGrid integration cho email alerts
-- **Quản lý trạng thái**: Đánh dấu đã đọc/chưa đọc
-- **Phân loại**: Các loại thông báo khác nhau (system, payment, quiz, etc.)
+### He thong thong bao
+- Real-time WebSocket qua Socket.IO
+- Thong bao ca nhan, broadcast, va thong bao he thong
+- Email notifications qua SendGrid
+- Quan ly trang thai da doc/chua doc
+- Phan loai: system, payment, quiz, ...
 
-### 📊 Gói dịch vụ (Packages)
-- **Quản lý gói**: Tạo/sửa/xóa các gói subscription
-- **Pricing**: Thiết lập giá và thời hạn cho từng gói
-- **Benefits**: Mô tả lợi ích của từng gói
+### Goi dich vu (Packages)
+- Quan ly goi subscription: tao/sua/xoa
+- Thiet lap gia, thoi han, va mo ta loi ich tung goi
 
-## 🛠 Công nghệ sử dụng
+## Cong nghe su dung
 
-### Backend
-- **Framework**: NestJS (Node.js)
-- **Database**: MongoDB với Mongoose ODM
-- **Authentication**: JWT (JSON Web Tokens) + Firebase Admin SDK
-- **Real-time**: Socket.IO cho WebSocket notifications
-- **Scheduling**: NestJS Schedule (cron jobs) cho auto test timeout
-- **File Processing**: Mammoth (Word), pdf-parse (PDF), Multer (uploads)
-- **AI Integration**: Google Gemini AI cho import quiz tự động
-- **Payment**: VNPay SDK, PayPal SDK với webhook support
-- **Email**: SendGrid cho email notifications
-- **Validation**: class-validator, class-transformer
+### Backend - NestJS
+| Thanh phan | Cong nghe |
+|---|---|
+| Framework | NestJS 11 (Node.js 20) |
+| Database | MongoDB + Mongoose ODM |
+| Authentication | JWT + Firebase Admin SDK + Passport |
+| Real-time | Socket.IO |
+| API Docs | Swagger (OpenAPI) |
+| Scheduling | NestJS Schedule (cron jobs) |
+| File Processing | Mammoth (Word), pdf-parse (PDF), Multer (uploads) |
+| AI | Google Gemini AI |
+| Payment | VNPay, PayPal (webhook support) |
+| Email | SendGrid |
+| Validation | class-validator, class-transformer |
 
-### Frontend
-- **Framework**: React 19 với TypeScript
-- **Build Tool**: Vite
-- **Styling**: Tailwind CSS + shadcn/ui components
-- **Animations**: GSAP (@gsap/react)
-- **Charts**: Recharts
-- **Icons**: Lucide React + React Icons
-- **Routing**: React Router DOM
-- **HTTP Client**: Axios
-- **Real-time**: Socket.IO Client
-- **Date Processing**: Day.js
-- **Firebase**: Firebase client SDK
+### Frontend - React SPA
+| Thanh phan | Cong nghe |
+|---|---|
+| Framework | React 19 + TypeScript |
+| Build Tool | Vite 7 |
+| Styling | Tailwind CSS 3 + shadcn/ui (Radix UI) |
+| Animations | GSAP |
+| Charts | Recharts |
+| Icons | Lucide React + React Icons |
+| Routing | React Router DOM 7 |
+| HTTP Client | Axios |
+| Real-time | Socket.IO Client |
+| Date | Day.js |
+| Auth | Firebase Client SDK |
+| Deployment | Vercel |
 
-### DevOps & Tools
-- **Testing**: Jest (backend), ESLint + Prettier (both)
-- **Type Safety**: TypeScript (full-stack)
-- **Package Manager**: npm
-- **Development**: Hot reload với nodemon (backend), Vite HMR (frontend)
+### Mobile - Flutter
+| Thanh phan | Cong nghe |
+|---|---|
+| Framework | Flutter 3 (Dart) |
+| State Management | Riverpod |
+| HTTP Client | Dio |
+| Routing | GoRouter |
+| Auth | Firebase Auth + Google Sign-in |
+| Storage | Flutter Secure Storage |
+| In-app Purchase | in_app_purchase |
+| File Picker | file_picker |
+| i18n | flutter_localizations + intl |
 
-## 🏗 Kiến trúc hệ thống
+### DevOps
+| Thanh phan | Cong nghe |
+|---|---|
+| Containerization | Docker + Docker Compose |
+| CI/CD | GitHub Actions |
+| Testing | Jest (backend), Flutter test (mobile) |
+| Linting | ESLint + Prettier |
+| Type Safety | TypeScript (full-stack), Dart (mobile) |
+| Deployment | Vercel (frontend), Docker (backend) |
 
-### Cấu trúc dự án
+## Cau truc du an
+
 ```
 DACS/
-├── Backend/                 # NestJS API Server
+├── Backend/                  # NestJS API Server
 │   ├── src/
-│   │   ├── auth/           # JWT + Firebase authentication
-│   │   ├── users/          # User management + subscription
-│   │   ├── quizzes/        # Quiz CRUD + AI import
-│   │   ├── questions/      # Question management
-│   │   ├── answers/        # Answer management
-│   │   ├── test-attempts/  # Test taking + premium control
-│   │   ├── leaderboards/   # Ranking system
-│   │   ├── payments/       # VNPay + PayPal integration
-│   │   ├── packages/       # Subscription packages
-│   │   └── notifications/  # WebSocket + email notifications
+│   │   ├── auth/             # JWT + Firebase authentication
+│   │   ├── users/            # User management + subscription
+│   │   ├── quizzes/          # Quiz CRUD + AI import
+│   │   ├── questions/        # Question management
+│   │   ├── answers/          # Answer management
+│   │   ├── test-attempts/    # Test taking + premium control
+│   │   ├── leaderboards/     # Ranking system
+│   │   ├── payments/         # VNPay + PayPal integration
+│   │   ├── packages/         # Subscription packages
+│   │   ├── notifications/    # WebSocket + email notifications
+│   │   ├── seed.ts           # Database seeder
+│   │   ├── seed-simple.ts    # Simple seed data
+│   │   ├── seed-clean.ts     # Clean seed data
+│   │   └── main.ts           # App bootstrap + Swagger setup
+│   ├── Dockerfile
 │   └── package.json
-├── frontend/               # React + TypeScript SPA
+├── frontend/                 # React + TypeScript SPA
 │   ├── src/
-│   │   ├── components/     # UI components (shadcn/ui based)
-│   │   ├── services/       # API + WebSocket clients
-│   │   ├── types/          # TypeScript definitions
-│   │   ├── hooks/          # Custom React hooks
-│   │   └── firebase/       # Firebase configuration
+│   │   ├── components/
+│   │   │   ├── auth/         # Authentication components
+│   │   │   ├── gamified/     # Gamified UI components
+│   │   │   ├── layout/       # Layout components
+│   │   │   ├── quizzes/      # Quiz components
+│   │   │   ├── teachers/     # Teacher/admin components
+│   │   │   └── ui/           # shadcn/ui base components
+│   │   ├── services/         # API client + WebSocket
+│   │   ├── types/            # TypeScript definitions
+│   │   ├── hooks/            # Custom React hooks
+│   │   ├── lib/              # Utilities
+│   │   └── firebase/         # Firebase configuration
+│   ├── vercel.json
+│   ├── capacitor.config.ts
 │   └── package.json
+├── mobilefe/                 # Flutter Mobile App
+│   ├── lib/
+│   │   ├── config/           # App configuration
+│   │   ├── data/             # Data layer
+│   │   ├── l10n/             # Localization
+│   │   ├── models/           # Data models
+│   │   ├── providers/        # Riverpod providers
+│   │   ├── screens/          # UI screens
+│   │   ├── services/         # API services
+│   │   ├── widgets/          # Reusable widgets
+│   │   └── main.dart         # App entry point
+│   ├── android/
+│   ├── ios/
+│   └── pubspec.yaml
+├── .github/workflows/ci.yaml # CI/CD pipeline
+├── docker-compose.yml        # Docker orchestration
 └── README.md
 ```
 
-### API Endpoints
+## API Endpoints
+
+Swagger docs co san tai: `http://localhost:3000/api/docs`
+
 ```
-/auth              - Xác thực người dùng (JWT + Firebase)
-/users             - Quản lý người dùng + kiểm tra subscription status
-/quizzes           - CRUD Quiz và import file (Premium gated)
-  ├── GET /accessible     - Quiz có thể truy cập theo subscription
-  ├── POST / (Premium)    - Tạo quiz (chỉ Admin & Premium)
-  └── POST /import (Premium) - Import AI (chỉ Admin & Premium)
-/questions         - Quản lý câu hỏi
-/answers           - Quản lý đáp án
-/test-attempts     - Làm bài với premium access control
-/leaderboards      - Bảng xếp hạng
-/payments          - Xử lý thanh toán (VNPay + PayPal)
-/packages          - Quản lý gói dịch vụ
-/notifications     - Hệ thống thông báo + WebSocket gateway
+/auth              - Xac thuc nguoi dung (JWT + Firebase)
+/users             - Quan ly nguoi dung + kiem tra subscription status
+/quizzes           - CRUD Quiz va import file (Premium gated)
+  ├── GET /accessible     - Quiz co the truy cap theo subscription
+  ├── POST /              - Tao quiz (chi Admin & Premium)
+  └── POST /import        - Import AI (chi Admin & Premium)
+/questions         - Quan ly cau hoi
+/answers           - Quan ly dap an
+/test-attempts     - Lam bai voi premium access control
+/leaderboards      - Bang xep hang
+/payments          - Xu ly thanh toan (VNPay + PayPal)
+/packages          - Quan ly goi dich vu
+/notifications     - He thong thong bao + WebSocket gateway
 ```
 
-## 🏗 Cấu trúc Database
+## Cau truc Database (MongoDB)
 
-### Các collection chính:
-- **users**: Thông tin người dùng, subscription, avatar
-- **quizzes**: Quiz với hình ảnh, time limit, premium status
-- **questions**: Câu hỏi thuộc quiz
-- **answers**: Đáp án của câu hỏi
-- **test-attempts**: Lịch sử làm bài của người dùng
-- **leaderboards**: Bảng xếp hạng
-- **payments**: Giao dịch thanh toán
-- **packages**: Các gói dịch vụ
-- **notifications**: Thông báo người dùng
+| Collection | Mo ta |
+|---|---|
+| users | Thong tin nguoi dung, subscription, avatar |
+| quizzes | Quiz voi hinh anh, time limit, premium status |
+| questions | Cau hoi thuoc quiz |
+| answers | Dap an cua cau hoi |
+| test-attempts | Lich su lam bai cua nguoi dung |
+| leaderboards | Bang xep hang |
+| payments | Giao dich thanh toan |
+| packages | Cac goi dich vu |
+| notifications | Thong bao nguoi dung |
 
-## 🚀 Cài đặt và chạy dự án
+## Cai dat va chay du an
 
-### Prerequisites
-- Node.js (v18+)
-- MongoDB
-- npm hoặc yarn
-- Firebase project setup
+### Yeu cau
+- Node.js v20+
+- MongoDB 6.0+
+- Flutter SDK 3.x (cho mobile)
+- npm
+- Docker va Docker Compose (tuy chon)
 
-### Backend Setup
+### Cach 1: Chay bang Docker (khuyen nghi)
+
+```bash
+# Khoi dong MongoDB va Backend
+docker compose up -d
+
+# Backend chay tai http://localhost:3000
+# MongoDB tai localhost:27017
+```
+
+### Cach 2: Chay thu cong
+
+#### Backend
 ```bash
 cd Backend
 npm install
-# Tạo file .env với các biến môi trường cần thiết
-npm run start:dev  # Development mode
-npm run build      # Production build
-npm run start:prod # Production mode
+
+# Seed du lieu mau (tuy chon)
+npm run seed           # Full seed
+npm run seed:simple    # Simple seed
+npm run seed:clean     # Clean seed
+
+npm run start:dev      # Development (hot reload)
+npm run build          # Production build
+npm run start:prod     # Production
 ```
 
-### Frontend Setup  
+#### Frontend
 ```bash
 cd frontend
 npm install
-npm run dev        # Development mode (Vite)
-npm run build      # Production build
-npm run preview    # Preview production build
+npm run dev            # Development (Vite HMR)
+npm run build          # Production build
+npm run preview        # Preview production build
+```
+
+#### Mobile
+```bash
+cd mobilefe
+flutter pub get
+flutter run             # Chay tren thiet bi/emulator
+flutter build apk       # Build APK (Android)
+flutter build ios       # Build iOS
 ```
 
 ### Environment Variables
+
 #### Backend (.env)
 ```env
 MONGODB_URI=your_mongodb_connection_string
 JWT_SECRET=your_jwt_secret
+PORT=3000
+
+# Firebase
 FIREBASE_PROJECT_ID=your_firebase_project_id
-SENDGRID_API_KEY=your_sendgrid_key
+
+# AI
+GEMINI_API_KEY=your_gemini_api_key
+
+# Payment
 VNPAY_TMN_CODE=your_vnpay_code
 VNPAY_SECRET_KEY=your_vnpay_secret
 PAYPAL_CLIENT_ID=your_paypal_client_id
 PAYPAL_CLIENT_SECRET=your_paypal_secret
+
+# Email
+SENDGRID_API_KEY=your_sendgrid_key
 ```
 
 #### Frontend (.env)
@@ -189,71 +278,66 @@ VITE_API_BASE_URL=http://localhost:3000
 VITE_FIREBASE_CONFIG=your_firebase_config_object
 ```
 
-## 📁 TypeScript Integration
-- **Backend**: Đầy đủ NestJS TypeScript với decorators và DTOs
-- **Frontend**: React + TypeScript với strict type checking
-- **Shared Types**: File `types.ts` đồng bộ interfaces giữa frontend-backend
+## CI/CD
 
-## 🎭 Premium Access Control
+GitHub Actions workflow (`.github/workflows/ci.yaml`) tu dong chay khi push/PR vao `main`, `master`, `develop`:
 
-### 🚫 **Free Users** (Gói miễn phí)
-- ✅ Xem danh sách quiz miễn phí (`is_premium: false`)
-- ✅ Làm quiz miễn phí
-- ✅ Xem lịch sử và kết quả làm bài
-- ✅ Tham gia leaderboard
-- ❌ **Không thể** tạo quiz mới
-- ❌ **Không thể** import quiz từ file
-- ❌ **Không thể** truy cập quiz premium
-- ❌ **Không thể** làm quiz premium
+1. Checkout code
+2. Setup Node.js 20.x va Flutter 3.x
+3. Install dependencies (frontend, backend, mobile)
+4. Analyze mobile code (Flutter analyze)
+5. Build tat ca 3 project
+6. Chay tests (mobile)
+7. Upload coverage reports (Codecov)
 
-### 💎 **Premium Users** (Đã đăng ký gói trả phí)
-- ✅ **Tất cả tính năng của Free Users**
-- ✅ **Tạo quiz mới** với đầy đủ tính năng
-- ✅ **Import quiz từ file** Word/PDF bằng AI
-- ✅ **Truy cập quiz premium** của người khác
-- ✅ **Làm quiz premium**
-- ✅ Tạo quiz premium cho người khác
+## Premium Access Control
 
-### 👑 **Admin** (Quản trị viên)
-- ✅ **Full access** tất cả tính năng
-- ✅ Quản lý quiz của tất cả users
-- ✅ Quản lý leaderboard
-- ✅ Quản lý notifications
-- ✅ Bypass mọi premium restrictions
+| Tinh nang | Free | Premium | Admin |
+|---|:---:|:---:|:---:|
+| Xem/lam quiz mien phi | x | x | x |
+| Xem lich su va ket qua | x | x | x |
+| Tham gia leaderboard | x | x | x |
+| Tao quiz moi | | x | x |
+| Import quiz tu file (AI) | | x | x |
+| Truy cap/lam quiz premium | | x | x |
+| Quan ly quiz tat ca users | | | x |
+| Quan ly leaderboard | | | x |
+| Quan ly notifications | | | x |
+| Bypass moi restrictions | | | x |
 
-### 🔐 **Logic kiểm soát**
-- **Kiểm tra khi tạo quiz**: `checkPremiumAccess()` trong QuizController
-- **Kiểm tra khi import**: Validation trước khi AI processing
-- **Kiểm tra khi truy cập**: Premium quiz chỉ hiển thị cho đúng user
-- **Kiểm tra khi làm bài**: TestAttemptService validate trước khi start
+**Logic kiem soat:**
+- `checkPremiumAccess()` trong QuizController kiem tra khi tao quiz
+- Validation truoc AI processing khi import
+- Premium quiz chi hien thi cho dung user
+- TestAttemptService validate truoc khi start lam bai
 
-## 🎯 Tính năng nổi bật
+## Scripts huu ich
 
-### 🤖 Import Quiz bằng AI *(Premium Feature)*
-- Upload file Word/PDF (chỉ Admin & Premium Users)
-- AI tự động phân tích và tạo câu hỏi
-- Hỗ trợ nhiều định dạng câu hỏi
-- Validation thông minh
+```bash
+# Backend
+npm run start:dev          # Dev server voi hot reload
+npm run seed               # Seed database
+npm run lint               # Lint va fix
+npm run test               # Chay unit tests
+npm run test:e2e           # Chay e2e tests
 
-### 🔒 Bảo mật & Kiểm soát truy cập
-- **Hybrid Authentication**: JWT + Firebase Admin SDK
-- **Role-based access control**: User/Admin với Guards và Decorators
-- **Premium Access Control**: Kiểm soát nghiêm ngặt nội dung premium
-- **Multi-layer Protection**: Quiz creation, quiz access, test attempts
-- **Input validation**: class-validator + class-transformer
-- **Secure payments**: VNPay + PayPal với webhook verification
-- **Real-time security**: WebSocket authentication & authorization
+# Frontend
+npm run dev                # Vite dev server
+npm run build              # Build production
+npm run lint               # Lint
 
-### 📱 User Experience theo Subscription
-- **Modern UI**: React 19 + Tailwind CSS + shadcn/ui components
-- **Smooth Animations**: GSAP-powered interactions
-- **Real-time Updates**: Socket.IO cho instant notifications
-- **Responsive Design**: Mobile-first approach
-- **Free Users**: Truy cập quiz miễn phí, không thể tạo quiz
-- **Premium Users**: Full access, tạo quiz, import AI, quiz premium
-- **Admin Dashboard**: Charts, analytics với Recharts
-- **Progress tracking**: Comprehensive history với time tracking
+# Mobile
+flutter run                # Chay app
+flutter test               # Chay tests
+flutter analyze            # Phan tich code
+flutter build apk --release # Build release APK
+
+# Docker
+docker compose up -d       # Khoi dong services
+docker compose down        # Dung services
+docker compose logs -f     # Xem logs
+```
 
 ---
 
-*Dự án được phát triển với mục tiêu tạo ra một nền tảng học tập hiện đại, thân thiện với người dùng và có khả năng mở rộng cao.*
+*Du an duoc phat trien voi muc tieu tao ra mot nen tang hoc tap hien dai, than thien voi nguoi dung va co kha nang mo rong cao.*
